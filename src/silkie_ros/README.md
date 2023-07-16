@@ -1,3 +1,8 @@
+### ToDo
+- World of facts as in a godmap of facts - Blackboard
+- Multiple sources to update the facts
+
+
 - Facts to infer
     - Can we pour?
     - Does the current facts points to liquid spilled?

@@ -5,6 +5,7 @@ import silkie
 
 from geometry_msgs.msg import PoseStamped, Point
 from mujoco_msgs.msg import ObjectStateArray
+from std_msgs.msg import String
 
 
 # TODO: 
@@ -29,19 +30,27 @@ class PouringFacts:
         self.total_particles = 200
         self.pred_near = False
         self.pred_spilling = False
+        # self.facts_updated = False
+        self.current_facts = {}
+        # self.current_facts_hashed = []
 
         self.facts = {}
 
         if source is None:
             self.source="sync_cup2"
+            self.current_facts.update(self.create_facts(self.source, "Container", "", 2))
         if dest is None:
             self.dest="sync_bowl"
+            self.current_facts.update(self.current_facts(self.dest, "Container", "", 2))
 
     def create_facts(self,  s: str, p: str, o: str = None, fact_type: int = defeasible_fact) -> dict:
         facts = {p: silkie.PFact(p)}
         facts[p].addFact(s, o, fact_type)
         return facts
     
+    def build_theory(self) -> tuple:
+        rules = silkie.loadDFLRules('./rules.dfl')
+        return silkie.buildTheory(rules, self.current_facts, {}, debugTheory=True)
     
 
 
@@ -54,6 +63,7 @@ class SimChannel:
         self.src_pose = PoseStamped()
         self.dest_pose = PoseStamped()
         self.src_limits = ()
+        self.dest_limits = ()
         # TODO : Create a hash with facts in (s,p,o) format. If something has changed wrt current fact. Create facts and call build theory
   
     def get_limits(self, length:float, breadth : float, height : float, position: Point) -> tuple: 
@@ -74,6 +84,7 @@ class SimChannel:
 
             print("I am in")
             count = 0
+            perceived_facts = []
 
             inside = lambda upper, lower, val: val.x > lower[0] and val.x < upper[0] and val.y > lower[1] and val.y < upper[1] and val.z > lower[2] and val.z < upper[2]
 
@@ -104,13 +115,17 @@ class SimChannel:
                                   self.dest_pose.pose.position.z))
             if distance <= max(self.pf.source_dim):
                 self.pf.pred_near = True
-                hashed = hash((self.pf.source, "near", self.pf.dest))
-                if hashed not in self.pf.old_facts:
-                    self.pf.old_facts.add(hashed)
-                self.pf.create_facts(self.pf.source, "near", self.pf.dest, defeasible_fact)
+                # hashed = hash((self.pf.source, "near", self.pf.dest))
+                # if hashed not in self.pf.old_facts:
+                #     self.pf.old_facts.add(hashed)
+                self.pf.current_facts.update(self.pf.create_facts(self.pf.source, "near", self.pf.dest, defeasible_fact))
+                # near_pred = "near_"+self.pf.source+"_"+self.pf.dest
+                # if near_pred not in self.pf.current_facts: 
+                #     self.pf.current_facts.append(near_pred)
+                
                 print("near true")
             else:
-                print(self.pf.create_facts(self.pf.source, "-near", self.pf.dest, defeasible_fact))
+                self.pf.current_facts.update(self.pf.create_facts(self.pf.source, "-near", self.pf.dest, defeasible_fact))
                 print("near false")
 
             if count > 0.25*self.pf.total_particles:
@@ -119,7 +134,18 @@ class SimChannel:
             else:
                 print("no spilling ", count)
 
-    
+    def publish_conclusions(self):
+        theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = self.pf.build_theory()
+        concluded_facts = theoryStr_canPour("/n")
+        perform = []
+        for conclusion in concluded_facts:
+            c = conclusion.split("=> ")[-1]
+            if c.startswith("P"):
+               perform.append(c.strip("P_"))
+        # TODO : publish a string message with behaviors to giskard
+        self.pf.current_facts = {}
+
+        
 
 
 if __name__ == '__main__':
