@@ -49,21 +49,25 @@ class PouringFacts:
         return facts
     
     def build_theory(self) -> tuple:
-        rules = silkie.loadDFLRules('./rules.dfl')
-        return silkie.buildTheory(rules, self.current_facts, {}, debugTheory=True)
+        conclusions = ()
+        if len(self.current_facts) != 0:
+            rules = silkie.loadDFLRules('./rules.dfl')
+            conclusions = silkie.buildTheory(rules, self.current_facts, {}, debugTheory=True)
+        return conclusions
     
-
 
 class SimChannel:
 
     def __init__(self) -> None:
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
         self.pose_update_duration = rospy.Duration(5.0)
         self.pf = PouringFacts()
         self.src_pose = PoseStamped()
         self.dest_pose = PoseStamped()
         self.src_limits = ()
         self.dest_limits = ()
+        self.publish_conclusions()
         # TODO : Create a hash with facts in (s,p,o) format. If something has changed wrt current fact. Create facts and call build theory
   
     def get_limits(self, length:float, breadth : float, height : float, position: Point) -> tuple: 
@@ -137,18 +141,22 @@ class SimChannel:
     def publish_conclusions(self):
         theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = self.pf.build_theory()
         concluded_facts = theoryStr_canPour("/n")
-        perform = []
+        # perform = []
+        concluded_behaviors = {}
         for conclusion in concluded_facts:
             c = conclusion.split("=> ")[-1]
             if c.startswith("P"):
-               perform.append(c.strip("P_"))
-        # TODO : publish a string message with behaviors to giskard
-        self.pf.current_facts = {}
+               facts = c.strip("P_").split("(")
+               behavior = facts[0]
+               object = facts[1].strip(')')
+               concluded_behaviors.update({"behavior": behavior, "object": object, "stopping_condition": " "})
 
-        
+        # TODO : publish a string message with behaviors to giskard
+        self.concluded_behavior_publisher.publish(concluded_behaviors)
+        self.pf.current_facts = {}
 
 
 if __name__ == '__main__':
     rospy.init_node('reasoner_sim_node')
-    SimChannel()
+    sim = SimChannel()
     rospy.spin()
