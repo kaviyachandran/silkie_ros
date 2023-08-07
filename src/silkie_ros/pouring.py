@@ -33,15 +33,20 @@ class PouringFacts:
         # self.facts_updated = False
         self.current_facts = {}
         # self.current_facts_hashed = []
-
-        self.facts = {}
+        # self.facts = {}
 
         if source is None:
             self.source="sync_cup2"
             self.current_facts.update(self.create_facts(self.source, "Container", "", 2))
+            print(self.current_facts)
         if dest is None:
             self.dest="sync_bowl"
-            self.current_facts.update(self.current_facts(self.dest, "Container", "", 2))
+            predicate = "Container"
+            if predicate in self.current_facts.keys():
+                self.current_facts[predicate].addFact(self.dest, "", 2)
+            else:
+                self.current_facts.update(self.create_facts(self.dest, predicate, "", 2))
+
 
     def create_facts(self,  s: str, p: str, o: str = None, fact_type: int = defeasible_fact) -> dict:
         facts = {p: silkie.PFact(p)}
@@ -58,6 +63,8 @@ class SimChannel:
 
     def __init__(self) -> None:
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.pub_behaviour = rospy.Publisher("/reasoned_behaviour", String, queue_size=1, latch=True)
+
         self.pose_update_duration = rospy.Duration(5.0)
         self.pf = PouringFacts()
         self.src_pose = PoseStamped()
@@ -82,7 +89,7 @@ class SimChannel:
                                    ((rospy.Time.now() - self.src_pose.header.stamp) >= self.pose_update_duration)):
            
 
-            print("I am in")
+            # print("I am in")
             count = 0
             perceived_facts = []
 
@@ -90,14 +97,14 @@ class SimChannel:
 
             for obj in req.object_states:
                 if obj.name == self.pf.source:
-                    print("source")
+                    # print("source")
                     self.src_pose.header.frame_id = self.pf.source
                     self.src_pose.header.stamp = rospy.Time.now()
                     self.src_pose.pose = obj.pose
                     self.src_limits = self.get_limits(self.pf.source_dim[0], self.pf.source_dim[1], self.pf.source_dim[2], self.src_pose.pose.position)
 
                 elif obj.name == self.pf.dest: ## Static so sufficient just get it once and not update!
-                    print("dests")
+                    # print("dests")
                     self.dest_pose.header.frame_id = self.pf.dest
                     self.dest_pose.header.stamp = self.src_pose.header.stamp
                     self.dest_pose.pose = obj.pose
@@ -123,27 +130,39 @@ class SimChannel:
                 # if near_pred not in self.pf.current_facts: 
                 #     self.pf.current_facts.append(near_pred)
                 
-                print("near true")
+                # print("near true")
             else:
                 self.pf.current_facts.update(self.pf.create_facts(self.pf.source, "-near", self.pf.dest, defeasible_fact))
-                print("near false")
+                # print("near false")
 
             if count > 0.25*self.pf.total_particles:
                 self.pf.pred_spilling = True
-                print("ooopss spilled.... ", count)
-            else:
-                print("no spilling ", count)
+                # print("ooopss spilled.... ", count)
+            # else:
+                # print("no spilling ", count)
+
+            self.publish_conclusions()
 
     def publish_conclusions(self):
         theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = self.pf.build_theory()
-        concluded_facts = theoryStr_canPour("/n")
-        perform = []
+        print("theory", theoryStr_canPour)
+        if theoryStr_canPour:
+            concluded_facts = theoryStr_canPour.split("\n")
+        else:
+            return
+        publish_data = {}
         for conclusion in concluded_facts:
-            c = conclusion.split("=> ")[-1]
-            if c.startswith("P"):
-               perform.append(c.strip("P_"))
+            predicate_list = conclusion.split(" => ")
+            temp = {}
+            if predicate_list[-1].startswith("P"):
+               temp = {"condition": predicate_list[0].split(": ")[-1], "behavior": predicate_list[-1].strip("P_")}
+               print("t  ", temp)
+            publish_data.update(temp)
         # TODO : publish a string message with behaviors to giskard
+        # print("data ", str(publish_data))
+        self.pub_behaviour.publish(str(publish_data))
         self.pf.current_facts = {}
+        return
 
         
 
