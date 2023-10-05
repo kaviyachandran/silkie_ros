@@ -32,7 +32,7 @@ class Blackboard(object):
         self.context_values = {
             'updatedBy': "",
             'near': False,
-            'nothingOut': False,
+            'poursTo': False,  # nothingOut
             'tooSlow': False,
             'tooFast': False,
             'tricklesAlongSource': False,
@@ -90,7 +90,7 @@ class BlackboardController:
                 print("t  ", temp)
             publish_data.update(temp)
         # TODO : publish a string message with behaviors to giskard
-        # print("data ", str(publish_data))
+        print("data ", str(publish_data))
         self.concluded_behavior_publisher.publish(str(publish_data))
         self.reasoner.current_facts = {}
         return
@@ -122,6 +122,16 @@ class Reasoner:
             self.current_facts.update(
                 Reasoner.create_facts(self.bb.scene_desc["source"], "-near", self.bb.scene_desc["dest"],
                                       silkie.DEFEASIBLE))
+        if self.bb.context_values["poursTo"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "poursTo",
+                                                            self.bb.scene_desc["dest"],
+                                                            silkie.DEFEASIBLE))
+
+        if not self.bb.context_values["poursTo"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-poursTo",
+                                                            self.bb.scene_desc["dest"],
+                                                            silkie.DEFEASIBLE))
+
         return
 
     @staticmethod
@@ -195,12 +205,19 @@ class SimulationSource:
                                                        self.bb.scene_desc["dest_dim"][1],
                                                        self.bb.scene_desc["dest_dim"][2],
                                                        self.bb.context_values["dest_pose"].pose.position)
+            # print(f'src pose: {self.bb.context_values["source_pose"]}',
+            #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             for obj in req.object_states:
                 if "ball" in obj.name:
-                    if not inside(self.src_limits[1], self.src_limits[0], obj.pose.position) and not inside(
-                            self.dest_limits[1], self.dest_limits[0], obj.pose.position):
+                    inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
+                    inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
+
+                    if not inside_src and not inside_dest:
                         particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                         count += 1
+                    elif inside_src:
+                        # Oct 5 ToDo : check if the particle is inside the source has a velocity moving towards the dest
+                        obj.velocity.linear.x
 
             self.distance = math.dist((self.bb.context_values["source_pose"].pose.position.x,
                                        self.bb.context_values["source_pose"].pose.position.y,
@@ -208,10 +225,7 @@ class SimulationSource:
                                       (self.bb.context_values["dest_pose"].pose.position.x,
                                        self.bb.context_values["dest_pose"].pose.position.y,
                                        self.bb.context_values["dest_pose"].pose.position.z))
-
-            diff = [self.bb.context_values["dest_pose"].pose.position.x,
-                    self.bb.context_values["dest_pose"].pose.position.y,
-                    self.bb.context_values["dest_pose"].pose.position.z - np.mean(particle_positions)]
+            print("dist {}".format(self.distance))
 
             if count > 0.25 * self.bb.scene_desc["total_particles"]:
                 self.bb.pred_spilling = True
@@ -220,7 +234,7 @@ class SimulationSource:
             # print("no spilling ", count)
 
     def update(self):
-        if 0.0 < self.distance <= 0.2:  # todo: add a value based on the objects involved
+        if 0.0 < self.distance <= 0.3:  # todo: add a value based on the objects involved
 
             self.bb.context_values["near"] = True
             # hashed = hash((self.bb.source, "near", self.bb.dest))
@@ -236,6 +250,10 @@ class SimulationSource:
             #                                                   silkie.DEFEASIBLE))
             self.bb.context_values["near"] = False
             print("near false")
+
+
+def sum_val(a: list):
+    return sum(a)
 
 
 class Perception:

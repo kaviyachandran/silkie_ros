@@ -71,7 +71,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 ### Todo: With a longer spout, the distance bet S and d can be longer
 
-## When to tilt - source is held above the height of the  destination. cantilt
+## When to tilt - source is held above the height of the destination. cantilt
 ## This is not the case for source with a long spout. But we did not make a case for the tilting space
 ## todo: Should we state that there should be no object between s and d?
 16: Container(?s), Liquid(?x), contains(?s,?x), Container(?d),  near(?s, ?d), above(?s, ?d), hasOpening(?s,?o), hasOpening(?d,?p) => canTiltAbove(?s, ?d)
@@ -85,12 +85,16 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Tilt destination is a location at which the openings of s is within ds, liquid pass through s's opening and is contained inside d. 
 18o: hasTiltDestination(?s, ?g) => LocationRole(?g), willbeAt(?s, ?g), poursTo(?s, ?d)
 
+18a: Container(?src), Container(?dest), near(?src, ?dest) => canPourTo(?src, ?dest)
+
 # For the liquid to come out of the container, the angle of tipping has to be increased
-18: -poursTo(?s,?d), isTilted(?s), canPourTo(?s,?d) => increaseTilting(?s)
+18: -poursTo(?s,?d), canPourTo(?s,?d) => P_increaseTilting(?s)
 ## Check 10a and 10b. Todo: Can we state Decreasing Tilt leads to S upright
-#18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => decreaseTilting(?s)
+#18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => P_decreaseTilting(?s)
 
 19: -near(?src,?dest) => P_moveTowards(?dest)
+
+
 
 ### Which direction to move to in case of spill
 
