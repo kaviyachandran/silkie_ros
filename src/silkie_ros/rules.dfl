@@ -97,7 +97,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 19: -near(?src,?dest) => P_moveTowards(?dest)
 
-
+20: poursTo(?s,?d), goalReached(?dest) => P_decreaseTilting(?s)
 
 ### Which direction to move to in case of spill
 

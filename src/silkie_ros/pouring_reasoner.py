@@ -30,7 +30,8 @@ class Blackboard(object):
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (0.0651, 0.0651, 0.08),  # l, d, h
-            "dest_dim": (0.1, 0.1, 0.05)
+            "dest_dim": (0.1, 0.1, 0.2),
+            "dest_goal": 100
         }
         self.context_values = {
             'updatedBy': "",
@@ -46,7 +47,8 @@ class Blackboard(object):
             'collision': False,
             'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
             "source_pose": PoseStamped(),
-            "dest_pose": PoseStamped()
+            "dest_pose": PoseStamped(),
+            "dest_goal_reached": False
         }
 
     def set_scene_desc(self, key: str, value):
@@ -154,6 +156,11 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "fastFlowFrom",
                                                             self.bb.scene_desc["dest"],
                                                             silkie.DEFEASIBLE))
+
+        if self.bb.context_values["dest_goal_reached"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "goalReached",
+                                                            "",
+                                                            silkie.DEFEASIBLE))
         return
 
     @staticmethod
@@ -185,10 +192,12 @@ class SimulationSource:
         self.object_flow: list = []
         # object dependent parameters
 
-        self.distance_threshold = (0.0, 0.3)
+        self.distance_threshold = (0.0, 0.30)
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
         self.source_tilt_angle = 70.0
         self.object_flow_threshold = 10  # no.of particles per cycle
+
+        self.dest_goal_reached = False
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -216,6 +225,7 @@ class SimulationSource:
                                                self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
             count = 0
             count_not_in_source = 0
+            count_in_dest = 0
             particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
@@ -259,8 +269,12 @@ class SimulationSource:
                         count += 1
                         if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
                             count_not_in_source += 1
+                        if inside_dest:
+                            count_in_dest += 1
             print("not in source: {}".format(count_not_in_source))
             current_particle_out = count_not_in_source - sum(self.object_flow)
+            if count_in_dest == self.bb.scene_desc["dest_goal"]:
+                self.dest_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
             if len(self.object_flow) > 3:
@@ -334,6 +348,11 @@ class SimulationSource:
             print("fast true")
         else:
             self.bb.context_values["tooFast"] = False
+
+        if self.dest_goal_reached:
+            self.bb.context_values["dest_goal_reached"] = True
+        else:
+            self.bb.context_values["dest_goal_reached"] = False
 
 
 class Perception:
