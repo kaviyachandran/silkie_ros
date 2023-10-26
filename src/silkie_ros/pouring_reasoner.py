@@ -11,10 +11,12 @@ import numpy as np
 import silkie
 
 import rospy
+import visualization_msgs
 from geometry_msgs.msg import PoseStamped, Point
 from mujoco_msgs.msg import ObjectStateArray
 from std_msgs.msg import String
 from tf.transformations import euler_from_quaternion
+from visualization_msgs.msg import MarkerArray
 
 
 class Blackboard(object):
@@ -30,8 +32,8 @@ class Blackboard(object):
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (0.0651, 0.0651, 0.08),  # l, d, h
-            "dest_dim": (0.1, 0.1, 0.2),
-            "dest_goal": 100
+            "dest_dim": (0.2, 0.2, 0.1799),
+            "dest_goal": 60
         }
         self.context_values = {
             'updatedBy': "",
@@ -48,7 +50,8 @@ class Blackboard(object):
             'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
             "source_pose": PoseStamped(),
             "dest_pose": PoseStamped(),
-            "dest_goal_reached": False
+            "dest_goal_reached": False,
+            "hasOpeningWithin": False,
         }
 
     def set_scene_desc(self, key: str, value):
@@ -186,11 +189,19 @@ class SimulationSource:
         self.src_limits: tuple = ()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray,
+                                                        self.bb_listener)
         #  variables to update context values
         self.distance: float = 0.0
         self.src_orientation: tuple = ()
         self.object_flow: list = []
         # object dependent parameters
+
+        self.src_bounding_box_pose = PoseStamped()
+        self.src_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
+        self.dest_bounding_box_pose = PoseStamped()
+        self.dest_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
+        self.bb_values_set = False
 
         self.distance_threshold = (0.0, 0.30)
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
@@ -210,15 +221,32 @@ class SimulationSource:
 
         return ll, ul
 
+    def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
+        src_set = False
+        dest_set = False
+        for marker in data.markers:
+            if marker.ns == self.bb.scene_desc["source"]:
+                self.src_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
+                self.src_bounding_box_pose = marker.pose
+                src_set = True
+            elif marker.ns == self.bb.scene_desc["dest"]:
+                self.dest_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
+                self.dest_bounding_box_pose = marker.pose
+                dest_set = True
+        if src_set and dest_set:
+            self.bb_values_set = True
+
     def pose_listener(self, req):
 
         def inside(upper, lower, val):
             return lower[0] < val.x < upper[0] and lower[1] < val.y < upper[1] and lower[2] \
                    < val.z < upper[2]
 
-        if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
-                                  rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
-                                             self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec() >= 0.1:
+        if self.bb_values_set and req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
+                                                         rospy.Time(
+                                                             self.bb.context_values["source_pose"].header.stamp.secs,
+                                                             self.bb.context_values[
+                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.1:
 
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
@@ -234,11 +262,10 @@ class SimulationSource:
                     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
                     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
                     self.bb.context_values["source_pose"].pose = obj.pose
-                    self.src_limits = SimulationSource.get_limits(self.bb.scene_desc["source_dim"][0],
-                                                                  self.bb.scene_desc["source_dim"][1],
-                                                                  self.bb.scene_desc["source_dim"][2],
-                                                                  self.bb.context_values[
-                                                                      "source_pose"].pose.position)
+                    self.src_limits = SimulationSource.get_limits(self.src_bounding_box_dimensions[0],
+                                                                  self.src_bounding_box_dimensions[1],
+                                                                  self.src_bounding_box_dimensions[2],
+                                                                  self.src_bounding_box_pose.position)
 
                     self.src_orientation = np.degrees(euler_from_quaternion([
                         self.bb.context_values["source_pose"].pose.orientation.x,
@@ -253,10 +280,10 @@ class SimulationSource:
                     self.bb.context_values["dest_pose"].header.stamp = \
                         self.bb.context_values["source_pose"].header.stamp
                     self.bb.context_values["dest_pose"].pose = obj.pose
-                    self.dest_limits = self.get_limits(self.bb.scene_desc["dest_dim"][0],
-                                                       self.bb.scene_desc["dest_dim"][1],
-                                                       self.bb.scene_desc["dest_dim"][2],
-                                                       self.bb.context_values["dest_pose"].pose.position)
+                    self.dest_limits = self.get_limits(self.dest_bounding_box_dimensions[0],
+                                                       self.dest_bounding_box_dimensions[1],
+                                                       self.dest_bounding_box_dimensions[2],
+                                                       self.dest_bounding_box_pose.position)
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             for obj in req.object_states:
@@ -269,35 +296,35 @@ class SimulationSource:
                         count += 1
                         if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
                             count_not_in_source += 1
-                        if inside_dest:
-                            count_in_dest += 1
-            print("not in source: {}".format(count_not_in_source))
+                    elif inside_dest:
+                        count_in_dest += 1
+            print("not in source: {}, in dest: {}".format(count_not_in_source, count_in_dest))
             current_particle_out = count_not_in_source - sum(self.object_flow)
             if count_in_dest == self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
-            if len(self.object_flow) > 3:
-                obj_avg = np.average(self.object_flow[-3:])
-                print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
-            elif len(self.object_flow):
-                obj_avg = np.average(self.object_flow)
-                print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
+            # if len(self.object_flow) > 3:
+            #     obj_avg = np.average(self.object_flow[-3:])
+            #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
+            # elif len(self.object_flow):
+            #     obj_avg = np.average(self.object_flow)
+            #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
                 #  moving towards the dest obj.velocity.linear.x
 
-            self.distance = math.dist((self.bb.context_values["source_pose"].pose.position.x,
-                                       self.bb.context_values["source_pose"].pose.position.y,
-                                       self.bb.context_values["source_pose"].pose.position.z),
-                                      (self.bb.context_values["dest_pose"].pose.position.x,
-                                       self.bb.context_values["dest_pose"].pose.position.y,
-                                       self.bb.context_values["dest_pose"].pose.position.z))
+            self.distance = math.dist((self.src_bounding_box_pose.position.x,
+                                       self.src_bounding_box_pose.position.y),
+                                      # self.bb.context_values["source_pose"].pose.position.z),
+                                      (self.dest_bounding_box_pose.position.x,
+                                       self.dest_bounding_box_pose.position.y))
+            # self.bb.context_values["dest_pose"].pose.position.z))
             print("dist {}".format(self.distance))
 
-            if count > 0.25 * self.bb.scene_desc["total_particles"]:
+            if count > 0.20 * self.bb.scene_desc["total_particles"]:
                 self.bb.pred_spilling = True
                 print("ooopss spilled.... ", count)
-            # else:
-            # print("no spilling ", count)
+            else:
+                print("no spilling ", count)
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -326,7 +353,7 @@ class SimulationSource:
             self.bb.context_values["isTilted"] = False
 
         # poursTo
-        if len(self.object_flow) and self.object_flow[-1] > 0:
+        if len(self.object_flow) and  self.bb.context_values["isTilted"] and self.object_flow[-1] > 0:
             self.bb.context_values["poursTo"] = True
         else:
             self.bb.context_values["poursTo"] = False
