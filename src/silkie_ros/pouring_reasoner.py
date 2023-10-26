@@ -179,6 +179,12 @@ class Reasoner:
         else:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
                                                             silkie.DEFEASIBLE))
+        if self.bb.context_values["hasOpeningWithin"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasOpeningWithin",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["hasOpeningWithin"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasOpeningWithin",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
         return
 
@@ -230,6 +236,7 @@ class SimulationSource:
         self.cup_direction = 1
         self.dest_goal_reached = False
         self.normal_vector = np.array([0, 0, 1])
+        self.opening_within = False
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -325,7 +332,7 @@ class SimulationSource:
             #     obj_avg = np.average(self.object_flow)
             #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
             #  moving towards the dest obj.velocity.linear.x
-
+            # near predicate
             self.distance = math.dist((self.src_bounding_box_pose.position.x,
                                        self.src_bounding_box_pose.position.y),
                                       # self.bb.context_values["source_pose"].pose.position.z),
@@ -364,6 +371,30 @@ class SimulationSource:
                                    self.bb.context_values["source_pose"].pose.position.z]) - point_map_bottom[:3]
 
             self.cup_direction = np.dot(self.normal_vector, src_vector)
+            # compute opening within or not
+            src_opening_point = (self.src_bounding_box_pose.position.x + self.src_bounding_box_dimensions[0] / 2,
+                                 self.src_bounding_box_pose.position.y + self.src_bounding_box_dimensions[1] / 2)
+            dest_opening_point = (self.dest_bounding_box_pose.position.x + self.dest_bounding_box_dimensions[0] / 2,
+                                  self.dest_bounding_box_pose.position.y + self.dest_bounding_box_dimensions[1] / 2)
+            dest_opening_rectangle = [[dest_opening_point[0] - self.dest_bounding_box_dimensions[0] / 2,
+                                       dest_opening_point[1] + self.dest_bounding_box_dimensions[1] / 2],
+                                      [dest_opening_point[0] + self.dest_bounding_box_dimensions[0] / 2,
+                                       dest_opening_point[1] + self.dest_bounding_box_dimensions[1] / 2],
+                                      [dest_opening_point[0] - self.dest_bounding_box_dimensions[0] / 2,
+                                       dest_opening_point[1] - self.dest_bounding_box_dimensions[1] / 2],
+                                      [dest_opening_point[0] + self.dest_bounding_box_dimensions[0] / 2,
+                                       dest_opening_point[1] - self.dest_bounding_box_dimensions[1] / 2]]
+            AB = (dest_opening_rectangle[1][0] - dest_opening_rectangle[0][0], dest_opening_rectangle[1][1] -
+                  dest_opening_rectangle[0][1])
+            AM = (src_opening_point[0]-dest_opening_rectangle[0][0], src_opening_point[1]-dest_opening_rectangle[0][1])
+            BC = (dest_opening_rectangle[2][0] - dest_opening_rectangle[1][0], dest_opening_rectangle[2][1] -
+                  dest_opening_rectangle[1][1])
+            BM = (src_opening_point[0]-dest_opening_rectangle[1][0], src_opening_point[1]-dest_opening_rectangle[1][1])
+
+            if 0 < np.dot(AB, AM) < np.dot(AB, AB) and 0 < np.dot(BC, BM) < np.dot(BC, BC):
+                self.opening_within = True
+                print("opening withing")
+
             self.cup_orientation = np.degrees(np.arccos(self.cup_direction / np.linalg.norm(src_vector)))
 
             # print("pose ", self.bb.context_values["source_pose"].pose)
@@ -430,6 +461,11 @@ class SimulationSource:
             self.bb.context_values["dest_goal_reached"] = True
         else:
             self.bb.context_values["dest_goal_reached"] = False
+
+        if self.opening_within:
+            self.bb.context_values["hasOpeningWithin"] = True
+        else:
+            self.bb.context_values["hasOpeningWithin"] = False
 
 
 class Perception:
