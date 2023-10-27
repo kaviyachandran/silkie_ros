@@ -52,6 +52,7 @@ class Blackboard(object):
             "dest_pose": PoseStamped(),
             "dest_goal_reached": False,
             "hasOpeningWithin": False,
+            "sourceUpright": True
         }
 
     def set_scene_desc(self, key: str, value):
@@ -170,6 +171,14 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-goalReached",
                                                             "",
                                                             silkie.DEFEASIBLE))
+
+        if self.bb.context_values["sourceUpright"]:
+            self.create_facts(Reasoner.create_facts(self.bb.scene_desc["source"], "upright", "",
+                                                    silkie.DEFEASIBLE))
+        else:
+            self.create_facts(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
+                                                    silkie.DEFEASIBLE))
+
         return
 
     @staticmethod
@@ -213,7 +222,7 @@ class SimulationSource:
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
         self.source_tilt_angle = 70.0
         self.object_flow_threshold = 10  # no.of particles per cycle
-
+        self.source_upright_angle = 5.0
         self.dest_goal_reached = False
 
     @staticmethod
@@ -278,7 +287,8 @@ class SimulationSource:
                         self.bb.context_values["source_pose"].pose.orientation.y,
                         self.bb.context_values["source_pose"].pose.orientation.z,
                         self.bb.context_values["source_pose"].pose.orientation.w]))
-                    print("src orient :{}".format(self.src_orientation))
+                    print("src orient :{}, quat: {}".format(self.src_orientation,
+                                                            self.bb.context_values["source_pose"].pose.orientation))
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -316,7 +326,7 @@ class SimulationSource:
             # elif len(self.object_flow):
             #     obj_avg = np.average(self.object_flow)
             #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
-                #  moving towards the dest obj.velocity.linear.x
+            #  moving towards the dest obj.velocity.linear.x
 
             self.distance = math.dist((self.src_bounding_box_pose.position.x,
                                        self.src_bounding_box_pose.position.y),
@@ -358,8 +368,14 @@ class SimulationSource:
         else:
             self.bb.context_values["isTilted"] = False
 
+        # source upright
+        if self.src_orientation[2] <= self.source_upright_angle:
+            self.bb.context_values["sourceUpright"] = True
+        else:
+            self.bb.context_values["sourceUpright"] = False
+
         # poursTo
-        if len(self.object_flow) and  self.bb.context_values["isTilted"] and self.object_flow[-1] > 0:
+        if len(self.object_flow) and self.bb.context_values["isTilted"] and self.object_flow[-1] > 0:
             self.bb.context_values["poursTo"] = True
         else:
             self.bb.context_values["poursTo"] = False

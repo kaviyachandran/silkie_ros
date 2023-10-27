@@ -104,7 +104,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ##20b: SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
 
 21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
-
+22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
 
 20a > 18a
 
