@@ -16,7 +16,7 @@ def reportTargetConclusions(theory, i2s, whitelist):
 
 
 def main():
-    rules = reasoner.loadDFLRules('/home/kaviya/giskard_ws/src/silkie_ros/src/silkie_ros/rules.dfl')
+    rules = reasoner.loadDFLRules('./rules.dfl')
 
     factsPour = reasoner.loadDFLFacts('./facts_pour.dfl')
     factsPour = reasoner.loadDFLFacts('./facts_cant_pour.dfl', factsPour)
