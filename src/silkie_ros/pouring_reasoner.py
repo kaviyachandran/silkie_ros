@@ -54,6 +54,11 @@ class Blackboard(object):
             "dest_goal_reached": False,
             "hasOpeningWithin": False,
             "sourceUpright": True
+            # - (0, -1) ---> Behind. move upwards. in +y direction
+            # - (0, 1) ---> FrontOf. move downwards. in -y direction
+            # - (1, 0) ---> Right. move left. in -x direction
+            # - (-1, 0) ---> Left. move right. in +x direction
+            "locationOfSourceRelativeToDestination": "" ,
         }
 
     def set_scene_desc(self, key: str, value):
@@ -185,7 +190,9 @@ class Reasoner:
         elif not self.bb.context_values["hasOpeningWithin"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasOpeningWithin",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
-
+            self.cureent_facts.update(Reasoner.create_facts(self.bb.scene_desc["locationOfSourceRelativeToDestination"],
+                                                            "locationOfSourceRelativeToDestination", "",
+                                                            silkie.DEFEASIBLE))
         return
 
     @staticmethod
@@ -237,6 +244,7 @@ class SimulationSource:
         self.dest_goal_reached = False
         self.normal_vector = np.array([0, 0, 1])
         self.opening_within = False
+        self.direction_vector = (0, 0)  # to make the opening_within true
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -373,9 +381,11 @@ class SimulationSource:
             self.cup_direction = np.dot(self.normal_vector, src_vector)
             # compute opening within or not
             src_opening_point = (self.src_bounding_box_pose.position.x + self.src_bounding_box_dimensions[0] / 2,
-                                 self.src_bounding_box_pose.position.y + self.src_bounding_box_dimensions[1] / 2)
+                                 self.src_bounding_box_pose.position.y + self.src_bounding_box_dimensions[1] / 2,
+                                 self.src_bounding_box_pose.position.z + self.src_bounding_box_dimensions[2] / 2)
             dest_opening_point = (self.dest_bounding_box_pose.position.x + self.dest_bounding_box_dimensions[0] / 2,
-                                  self.dest_bounding_box_pose.position.y + self.dest_bounding_box_dimensions[1] / 2)
+                                  self.dest_bounding_box_pose.position.y + self.dest_bounding_box_dimensions[1] / 2,
+                                  self.dest_bounding_box_pose.position.z + self.dest_bounding_box_dimensions[2] / 2)
             dest_opening_rectangle = [[dest_opening_point[0] - self.dest_bounding_box_dimensions[0] / 2,
                                        dest_opening_point[1] + self.dest_bounding_box_dimensions[1] / 2],
                                       [dest_opening_point[0] + self.dest_bounding_box_dimensions[0] / 2,
@@ -386,14 +396,29 @@ class SimulationSource:
                                        dest_opening_point[1] - self.dest_bounding_box_dimensions[1] / 2]]
             AB = (dest_opening_rectangle[1][0] - dest_opening_rectangle[0][0], dest_opening_rectangle[1][1] -
                   dest_opening_rectangle[0][1])
-            AM = (src_opening_point[0]-dest_opening_rectangle[0][0], src_opening_point[1]-dest_opening_rectangle[0][1])
+            AM = (
+                src_opening_point[0] - dest_opening_rectangle[0][0],
+                src_opening_point[1] - dest_opening_rectangle[0][1])
             BC = (dest_opening_rectangle[2][0] - dest_opening_rectangle[1][0], dest_opening_rectangle[2][1] -
                   dest_opening_rectangle[1][1])
-            BM = (src_opening_point[0]-dest_opening_rectangle[1][0], src_opening_point[1]-dest_opening_rectangle[1][1])
+            BM = (
+                src_opening_point[0] - dest_opening_rectangle[1][0],
+                src_opening_point[1] - dest_opening_rectangle[1][1])
 
             if 0 < np.dot(AB, AM) < np.dot(AB, AB) and 0 < np.dot(BC, BM) < np.dot(BC, BC):
                 self.opening_within = True
-                print("opening withing")
+                print("opening within")
+            else:
+                # dest_src
+                v_dest_src = (src_opening_point[0] - dest_opening_point[0],
+                              src_opening_point[1] - dest_opening_point[1])
+                v_dest_src = v_dest_src / np.linalg.norm(v_dest_src)
+                coordinate = np.argmax(abs(v_dest_src))
+
+                if v_dest_src[coordinate] > 0:
+                    self.direction_vector[coordinate] = 1
+                else:
+                    self.direction_vector[coordinate] = -1
 
             self.cup_orientation = np.degrees(np.arccos(self.cup_direction / np.linalg.norm(src_vector)))
 
@@ -466,6 +491,17 @@ class SimulationSource:
             self.bb.context_values["hasOpeningWithin"] = True
         else:
             self.bb.context_values["hasOpeningWithin"] = False
+            coordinate = np.argmax(abs(self.direction_vector))
+            if coordinate == 0:
+                if self.direction_vector[coordinate] > 0:
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "right"
+                else:
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "left"
+            else:
+                if self.direction_vector[coordinate] > 0:
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "front"
+                else:
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "behind"
 
 
 class Perception:

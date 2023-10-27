@@ -88,7 +88,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), -goalReached(?d)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
 18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
-18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest) => P_moveTowards(?dest)
+18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), locationOfSourceRelativeToDest(?direction) => P_moveAwayFrom(?direction)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
 18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
