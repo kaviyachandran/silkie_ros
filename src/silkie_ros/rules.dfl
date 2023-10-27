@@ -86,22 +86,22 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Tilt destination is a location at which the openings of s is within ds, liquid pass through s's opening and is contained inside d. 
 18o: hasTiltDestination(?s, ?g) => LocationRole(?g), willbeAt(?s, ?g)    ###, poursTo(?s, ?d)
 
-18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
+18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), -goalReached(?d)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
 18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
 18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest) => P_moveTowards(?dest)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
-18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d) => P_increaseTilting(?s)
-18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d) => P_increaseTilting(?s)
-18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d) => P_decreaseTilting(?s)
+18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
+18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
+18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
 ## Check 10a and 10b. Todo: Can we state Decreasing Tilt leads to S upright
 ##18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => P_decreaseTilting(?s)
 
 19:  SourceRole(?src), DestinationRole(?dest), -near(?src,?dest) => P_moveTowards(?dest)
 
 20: poursTo(?s,?d), isTilted(?s), goalReached(?d) => P_decreaseTilting(?s)
-20a: SourceRole(?s), DestinationRole(?d), isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
-20b:  SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
+20a: SourceRole(?s), DestinationRole(?d), near(?s,?d), goalReached(?d) => -canPourTo(?s, ?d)
+##20b: SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
 
 21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
 

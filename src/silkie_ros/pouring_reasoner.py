@@ -166,6 +166,10 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "goalReached",
                                                             "",
                                                             silkie.DEFEASIBLE))
+        else:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-goalReached",
+                                                            "",
+                                                            silkie.DEFEASIBLE))
         return
 
     @staticmethod
