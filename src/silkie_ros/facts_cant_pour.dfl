@@ -1,0 +1,3 @@
+=> isTilted(teapot)
+=> poursTo(teapot, cup)
+=> goalReached(cup)

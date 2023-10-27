@@ -2,9 +2,10 @@ import os
 import sys
 
 cpath = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cpath,'../../src'))
+sys.path.append(os.path.join(cpath, '../../src'))
 
 import silkie as reasoner
+
 
 def reportTargetConclusions(theory, i2s, whitelist):
     conclusions = reasoner.dflInference(theory)
@@ -13,33 +14,21 @@ def reportTargetConclusions(theory, i2s, whitelist):
         if (c[0] in whitelist) and (c[1] != c[2]):
             print(c)
 
-def main():
-    rules = reasoner.loadDFLRules('./rules.dfl')
-# => Container(cup)
-# => Container(teapot)
-# => contains(teapot, tea)
-# => Liquid(tea)
-# => near(cup, teapot)
 
+def main():
+    rules = reasoner.loadDFLRules('/home/kaviya/giskard_ws/src/silkie_ros/src/silkie_ros/rules.dfl')
 
     factsPour = reasoner.loadDFLFacts('./facts_pour.dfl')
-    print(factsPour)
-    factsPour = reasoner.loadDFLFacts('./facts_opening.dfl', factsPour)
-    factsPour = reasoner.loadDFLFacts('./facts_spill.dfl', factsPour)
+    factsPour = reasoner.loadDFLFacts('./facts_cant_pour.dfl', factsPour)
+    # factsPour = reasoner.loadDFLFacts('./facts_opening.dfl', factsPour)
+    # factsPour = reasoner.loadDFLFacts('./facts_spill.dfl', factsPour)
 
     theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = \
-    reasoner.buildTheory(rules, factsPour, {}, debugTheory=True)
+        reasoner.buildTheory(rules, factsPour, {}, debugTheory=True)
 
     print(theoryStr_canPour)
-    reportTargetConclusions(theory_canPour, i2s_canPour, ['canPourTo'])
-
-
-
-
-
+    reportTargetConclusions(theory_canPour, i2s_canPour, ['canPourTo', '-canPourTo'])
 
 
 if __name__ == "__main__":
     main()
-
-
