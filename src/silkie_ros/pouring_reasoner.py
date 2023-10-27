@@ -120,6 +120,8 @@ class Reasoner:
         facts[self.bb.scene_desc["dest_type"]].addFact(self.bb.scene_desc["dest"], "", silkie.DEFEASIBLE)
         facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"],
                                            self.bb.scene_desc["poured_substance_type"], "", silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                           self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
         return facts
 
     def create_facts_from_context(self):
