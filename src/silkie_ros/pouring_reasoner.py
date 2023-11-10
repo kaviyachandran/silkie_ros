@@ -173,11 +173,11 @@ class Reasoner:
                                                             silkie.DEFEASIBLE))
 
         if self.bb.context_values["sourceUpright"]:
-            self.create_facts(Reasoner.create_facts(self.bb.scene_desc["source"], "upright", "",
-                                                    silkie.DEFEASIBLE))
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "upright", "",
+                                                            silkie.DEFEASIBLE))
         else:
-            self.create_facts(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
-                                                    silkie.DEFEASIBLE))
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
+                                                            silkie.DEFEASIBLE))
 
         return
 
@@ -208,7 +208,7 @@ class SimulationSource:
                                                         self.bb_listener)
         #  variables to update context values
         self.distance: float = 0.0
-        self.src_orientation: tuple = ()
+        self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
         # object dependent parameters
 
@@ -287,7 +287,8 @@ class SimulationSource:
                         self.bb.context_values["source_pose"].pose.orientation.y,
                         self.bb.context_values["source_pose"].pose.orientation.z,
                         self.bb.context_values["source_pose"].pose.orientation.w]))
-                    print("src orient :{}, quat: {}".format(self.src_orientation,
+                    print("src orient :{}, quat: {}".format(self.src_orientation[0], self.src_orientation[0],
+                                                            self.src_orientation[0],
                                                             self.bb.context_values["source_pose"].pose.orientation))
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
@@ -316,7 +317,7 @@ class SimulationSource:
                         count_in_dest += 1
             print("not in source: {}, in dest: {}".format(count_not_in_source, count_in_dest))
             current_particle_out = count_not_in_source - sum(self.object_flow)
-            if count_in_dest == self.bb.scene_desc["dest_goal"]:
+            if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
@@ -369,7 +370,7 @@ class SimulationSource:
             self.bb.context_values["isTilted"] = False
 
         # source upright
-        if self.src_orientation[2] <= self.source_upright_angle:
+        if self.src_orientation[0] <= self.source_upright_angle:
             self.bb.context_values["sourceUpright"] = True
         else:
             self.bb.context_values["sourceUpright"] = False
