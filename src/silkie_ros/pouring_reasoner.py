@@ -15,7 +15,8 @@ import visualization_msgs
 from geometry_msgs.msg import PoseStamped, Point
 from mujoco_msgs.msg import ObjectStateArray
 from std_msgs.msg import String
-from tf.transformations import euler_from_quaternion
+import tf
+from tf.transformations import euler_from_quaternion, quaternion_matrix
 from visualization_msgs.msg import MarkerArray
 
 
@@ -31,7 +32,7 @@ class Blackboard(object):
             "poured_substance_type": "Liquid",
             "poured_substance": "particles",
             "total_particles": 200,
-            "source_dim": (0.0651, 0.0651, 0.08),  # l, d, h
+            "source_dim": (0.06827, 0.06603, 0.1861),  # l, d, h
             "dest_dim": (0.2, 0.2, 0.1799),
             "dest_goal": 60
         }
@@ -202,13 +203,14 @@ class SimulationSource:
     def __init__(self, bb):
         self.dest_limits: tuple = ()
         self.src_limits: tuple = ()
+        self.tf = tf.Transformer(True, rospy.Duration(10.0))
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
         self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray,
                                                         self.bb_listener)
         #  variables to update context values
         self.distance: float = 0.0
-        self.src_orientation: tuple = (0, 0, 0)
+        # self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
         # object dependent parameters
 
@@ -220,10 +222,14 @@ class SimulationSource:
 
         self.distance_threshold = (0.0, 0.30)
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
-        self.source_tilt_angle = 70.0
         self.object_flow_threshold = 10  # no.of particles per cycle
-        self.source_upright_angle = 5.0
+
+        self.source_tilt_angle = 45.0
+        self.source_upright_angle = 10.0
+        self.cup_orientation = 0.0
+        self.cup_direction = 1
         self.dest_goal_reached = False
+        self.normal_vector = np.array([0, 0, 1])
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -261,7 +267,7 @@ class SimulationSource:
                                                          rospy.Time(
                                                              self.bb.context_values["source_pose"].header.stamp.secs,
                                                              self.bb.context_values[
-                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.1:
+                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.09:
 
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
@@ -281,15 +287,6 @@ class SimulationSource:
                                                                   self.src_bounding_box_dimensions[1],
                                                                   self.src_bounding_box_dimensions[2],
                                                                   self.src_bounding_box_pose.position)
-
-                    self.src_orientation = np.degrees(euler_from_quaternion([
-                        self.bb.context_values["source_pose"].pose.orientation.x,
-                        self.bb.context_values["source_pose"].pose.orientation.y,
-                        self.bb.context_values["source_pose"].pose.orientation.z,
-                        self.bb.context_values["source_pose"].pose.orientation.w]))
-                    print("src orient :{}, quat: {}".format(self.src_orientation[0], self.src_orientation[0],
-                                                            self.src_orientation[0],
-                                                            self.bb.context_values["source_pose"].pose.orientation))
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -343,6 +340,37 @@ class SimulationSource:
             else:
                 print("no spilling ", count)
 
+            # upright
+            # tf_wrist_cup = tf.lookupTransform(self.bb.scene_desc['source'], 'wrist_roll_link', rospy.Time())
+
+            point_cup_bottom = np.array([0.,
+                                         0.,
+                                         -self.bb.scene_desc["source_dim"][2] / 2,
+                                         1])
+
+            tf_map_cup = quaternion_matrix(np.array([self.bb.context_values["source_pose"].pose.orientation.x,
+                                                     self.bb.context_values["source_pose"].pose.orientation.y,
+                                                     self.bb.context_values["source_pose"].pose.orientation.z,
+                                                     self.bb.context_values["source_pose"].pose.orientation.w]))
+            tf_map_cup[:, 3] = np.array([self.bb.context_values["source_pose"].pose.position.x,
+                                         self.bb.context_values["source_pose"].pose.position.y,
+                                         self.bb.context_values["source_pose"].pose.position.z, 1])
+
+            # rotated_point
+            point_map_bottom = np.matmul(tf_map_cup, point_cup_bottom)
+
+            src_vector = np.array([self.bb.context_values["source_pose"].pose.position.x,
+                                   self.bb.context_values["source_pose"].pose.position.y,
+                                   self.bb.context_values["source_pose"].pose.position.z]) - point_map_bottom[:3]
+
+            self.cup_direction = np.dot(self.normal_vector, src_vector)
+            self.cup_orientation = np.degrees(np.arccos(self.cup_direction / np.linalg.norm(src_vector)))
+
+            # print("pose ", self.bb.context_values["source_pose"].pose)
+            # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
+            #       f'point:{point_cup_bottom}, rotated_pt:{point_map_bottom},'
+            #       f' src_vector:{src_vector}')
+
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
             # todo: add a value based on the objects involved
@@ -363,14 +391,13 @@ class SimulationSource:
             # print("near false")
 
         # tilted
-        check_tilt = abs(np.asarray(self.src_orientation)) > self.source_tilt_angle
-        if check_tilt.any():
-            self.bb.context_values["isTilted"] = True
+        if self.cup_orientation >= self.source_tilt_angle:
+            self.bb.context_values['isTilted'] = True
         else:
-            self.bb.context_values["isTilted"] = False
+            self.bb.context_values['isTilted'] = False
 
-        # source upright
-        if self.src_orientation[0] <= self.source_upright_angle:
+        # upright
+        if self.cup_direction > 0 and self.cup_orientation <= self.source_upright_angle:
             self.bb.context_values["sourceUpright"] = True
         else:
             self.bb.context_values["sourceUpright"] = False
