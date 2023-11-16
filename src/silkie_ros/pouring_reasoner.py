@@ -58,7 +58,7 @@ class Blackboard(object):
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
             # - (-1, 0) ---> Left. move right. in +x direction
-            "locationOfSourceRelativeToDestination": "" ,
+            "locationOfSourceRelativeToDestination": "",
         }
 
     def set_scene_desc(self, key: str, value):
@@ -301,7 +301,7 @@ class SimulationSource:
                     self.src_limits = SimulationSource.get_limits(self.src_bounding_box_dimensions[0],
                                                                   self.src_bounding_box_dimensions[1],
                                                                   self.src_bounding_box_dimensions[2],
-                                                                  self.src_bounding_box_pose.position)
+                                                                  self.src_bounding_box_pose.pose.position)
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -312,7 +312,7 @@ class SimulationSource:
                     self.dest_limits = self.get_limits(self.dest_bounding_box_dimensions[0],
                                                        self.dest_bounding_box_dimensions[1],
                                                        self.dest_bounding_box_dimensions[2],
-                                                       self.dest_bounding_box_pose.position)
+                                                       self.dest_bounding_box_pose.pose.position)
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             for obj in req.object_states:
@@ -341,11 +341,11 @@ class SimulationSource:
             #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
             #  moving towards the dest obj.velocity.linear.x
             # near predicate
-            self.distance = math.dist((self.src_bounding_box_pose.position.x,
-                                       self.src_bounding_box_pose.position.y),
+            self.distance = math.dist((self.src_bounding_box_pose.pose.position.x,
+                                       self.src_bounding_box_pose.pose.position.y),
                                       # self.bb.context_values["source_pose"].pose.position.z),
-                                      (self.dest_bounding_box_pose.position.x,
-                                       self.dest_bounding_box_pose.position.y))
+                                      (self.dest_bounding_box_pose.pose.position.x,
+                                       self.dest_bounding_box_pose.pose.position.y))
             # self.bb.context_values["dest_pose"].pose.position.z))
             print("dist {}".format(self.distance))
 
@@ -380,45 +380,34 @@ class SimulationSource:
 
             self.cup_direction = np.dot(self.normal_vector, src_vector)
             # compute opening within or not
-            src_opening_point = (self.src_bounding_box_pose.position.x + self.src_bounding_box_dimensions[0] / 2,
-                                 self.src_bounding_box_pose.position.y + self.src_bounding_box_dimensions[1] / 2,
-                                 self.src_bounding_box_pose.position.z + self.src_bounding_box_dimensions[2] / 2)
-            dest_opening_point = (self.dest_bounding_box_pose.position.x + self.dest_bounding_box_dimensions[0] / 2,
-                                  self.dest_bounding_box_pose.position.y + self.dest_bounding_box_dimensions[1] / 2,
-                                  self.dest_bounding_box_pose.position.z + self.dest_bounding_box_dimensions[2] / 2)
-            dest_opening_rectangle = [[dest_opening_point[0] - self.dest_bounding_box_dimensions[0] / 2,
-                                       dest_opening_point[1] + self.dest_bounding_box_dimensions[1] / 2],
-                                      [dest_opening_point[0] + self.dest_bounding_box_dimensions[0] / 2,
-                                       dest_opening_point[1] + self.dest_bounding_box_dimensions[1] / 2],
-                                      [dest_opening_point[0] - self.dest_bounding_box_dimensions[0] / 2,
-                                       dest_opening_point[1] - self.dest_bounding_box_dimensions[1] / 2],
-                                      [dest_opening_point[0] + self.dest_bounding_box_dimensions[0] / 2,
-                                       dest_opening_point[1] - self.dest_bounding_box_dimensions[1] / 2]]
-            AB = (dest_opening_rectangle[1][0] - dest_opening_rectangle[0][0], dest_opening_rectangle[1][1] -
-                  dest_opening_rectangle[0][1])
-            AM = (
-                src_opening_point[0] - dest_opening_rectangle[0][0],
-                src_opening_point[1] - dest_opening_rectangle[0][1])
-            BC = (dest_opening_rectangle[2][0] - dest_opening_rectangle[1][0], dest_opening_rectangle[2][1] -
-                  dest_opening_rectangle[1][1])
-            BM = (
-                src_opening_point[0] - dest_opening_rectangle[1][0],
-                src_opening_point[1] - dest_opening_rectangle[1][1])
+            src_opening_point = np.array(
+                [self.src_bounding_box_pose.pose.position.x + self.src_bounding_box_dimensions[0] / 2,
+                 self.src_bounding_box_pose.position.y + self.src_bounding_box_dimensions[1] / 2])
+            # self.src_bounding_box_pose.position.z + self.src_bounding_box_dimensions[2] / 2)
+            dest_opening_point = np.array(
+                [self.dest_bounding_box_pose.position.x + self.bb.scene_desc["dest_dim"][0] / 2,
+                 self.dest_bounding_box_pose.position.y + self.bb.scene_desc["dest_dim"][1] / 2])
+            # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
+            l, d = self.bb.scene_desc["dest_dim"][1] / 2, self.bb.scene_desc["dest_dim"][0] / 2
+            a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d])
+            b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d])
+            c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d])
 
-            if 0 < np.dot(AB, AM) < np.dot(AB, AB) and 0 < np.dot(BC, BM) < np.dot(BC, BC):
+            # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
+
+            ab = b - a
+            ap = src_opening_point - a
+            ac = c - a
+
+            if 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac):
                 self.opening_within = True
                 print("opening within")
             else:
                 # dest_src
-                v_dest_src = (src_opening_point[0] - dest_opening_point[0],
-                              src_opening_point[1] - dest_opening_point[1])
-                v_dest_src = v_dest_src / np.linalg.norm(v_dest_src)
-                coordinate = np.argmax(abs(v_dest_src))
+                v_src_dest = dest_opening_point - src_opening_point
+                self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
-                if v_dest_src[coordinate] > 0:
-                    self.direction_vector[coordinate] = 1
-                else:
-                    self.direction_vector[coordinate] = -1
+
 
             self.cup_orientation = np.degrees(np.arccos(self.cup_direction / np.linalg.norm(src_vector)))
 
@@ -492,16 +481,17 @@ class SimulationSource:
         else:
             self.bb.context_values["hasOpeningWithin"] = False
             coordinate = np.argmax(abs(self.direction_vector))
+            ### ToDo : Also add for the other coordinate value if it is not zero
             if coordinate == 0:
                 if self.direction_vector[coordinate] > 0:
-                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "right"
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "Move forward"
                 else:
-                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "left"
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "Move back"
             else:
                 if self.direction_vector[coordinate] > 0:
-                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "front"
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "Move left"
                 else:
-                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "behind"
+                    self.bb.context_values["locationOfSourceRelativeToDestination"] = "Move right"
 
 
 class Perception:
