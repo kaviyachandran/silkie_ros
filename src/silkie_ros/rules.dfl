@@ -86,9 +86,14 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Tilt destination is a location at which the openings of s is within ds, liquid pass through s's opening and is contained inside d. 
 18o: hasTiltDestination(?s, ?g) => LocationRole(?g), willbeAt(?s, ?g)    ###, poursTo(?s, ?d)
 
-18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), -goalReached(?d)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
+18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), hasOpeningWithin(?src, ?dest), -goalReached(?d)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
 18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
-18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), locationOfSourceRelativeToDest(?direction) => P_moveAwayFrom(?direction)
+
+# At the moment, there can be only one conclusion so splitting the motion command in different rules
+18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), behind(?src, ?dest)  => P_moveForward(?src)
+18d: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?src, ?dest)  => P_moveBack(?src)
+18e: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?src, ?dest)  => P_moveRight(?src)
+18f: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?src, ?dest)  => P_moveLeft(?src)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
 18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
@@ -104,7 +109,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ##20b: SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
 
 21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
-22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
+
 
 20a > 18a
 
