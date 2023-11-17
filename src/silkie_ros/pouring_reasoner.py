@@ -52,8 +52,13 @@ class Blackboard(object):
             "source_pose": PoseStamped(),
             "dest_pose": PoseStamped(),
             "dest_goal_reached": False,
+            "sourceUpright": True,
             "hasOpeningWithin": False,
-            "sourceUpright": True
+            # - (0, -1) ---> Behind. move upwards. in +y direction
+            # - (0, 1) ---> FrontOf. move downwards. in -y direction
+            # - (1, 0) ---> Right. move left. in -x direction
+            # - (-1, 0) ---> Left. move right. in +x direction
+            "locationOfSourceRelativeToDestination": [],
         }
 
     def set_scene_desc(self, key: str, value):
@@ -97,11 +102,11 @@ class BlackboardController:
             predicate_list = conclusion.split(" => ")
             temp = {}
             if predicate_list[-1].startswith("P"):
-                temp = {"condition": predicate_list[0].split(": ")[-1], "behavior": predicate_list[-1].strip("P_")}
-                print("t  ", temp)
+                temp = {predicate_list[0].split(": ")[-1]: predicate_list[-1].strip("P_")}
+                # print("t  ", temp)
             publish_data.update(temp)
         # TODO : publish a string message with behaviors to giskard
-        # print("data ", str(publish_data))
+        print("data ", str(publish_data))
         self.concluded_behavior_publisher.publish(str(publish_data))
         self.reasoner.current_facts = {}
         return
@@ -180,6 +185,30 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
                                                             silkie.DEFEASIBLE))
 
+        if self.bb.context_values["hasOpeningWithin"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasOpeningWithin",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["hasOpeningWithin"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasOpeningWithin",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+
+            for direction in self.bb.context_values["locationOfSourceRelativeToDestination"]:
+                # print("direction ", direction)
+                if direction == "inFront":
+                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "inFrontOf",
+                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+                elif direction == "behind":
+                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "behind",
+                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+                if direction == "left":
+                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "leftOf",
+                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+                elif direction == "right":
+                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "rightOf",
+                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+
+            self.bb.context_values["locationOfSourceRelativeToDestination"] = []
+
         return
 
     @staticmethod
@@ -229,7 +258,10 @@ class SimulationSource:
         self.cup_orientation = 0.0
         self.cup_direction = 1
         self.dest_goal_reached = False
+
         self.normal_vector = np.array([0, 0, 1])
+        self.opening_within = False
+        self.direction_vector = (0, 0)  # to make the opening_within true
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -332,7 +364,7 @@ class SimulationSource:
                                       (self.dest_bounding_box_pose.position.x,
                                        self.dest_bounding_box_pose.position.y))
             # self.bb.context_values["dest_pose"].pose.position.z))
-            print("dist {}".format(self.distance))
+            # print("dist {}".format(self.distance))
 
             if count > 0.20 * self.bb.scene_desc["total_particles"]:
                 self.bb.pred_spilling = True
@@ -370,6 +402,37 @@ class SimulationSource:
             # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
             #       f'point:{point_cup_bottom}, rotated_pt:{point_map_bottom},'
             #       f' src_vector:{src_vector}')
+
+            # compute opening within or not
+            src_opening_point = np.array(
+                [self.src_bounding_box_pose.position.x,
+                 self.src_bounding_box_pose.position.y])
+            # self.src_bounding_box_pose.position.z + self.src_bounding_box_dimensions[2] / 2)
+            dest_opening_point = np.array(
+                [self.bb.context_values["dest_pose"].pose.position.x,
+                 self.bb.context_values["dest_pose"].pose.position.y])
+            # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
+            # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
+            # To ensure the source opening lies within the dest
+            l, d = (self.bb.scene_desc["dest_dim"][1]*0.75) / 2, (self.bb.scene_desc["dest_dim"][0]*0.75) / 2
+            a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d])
+            b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d])
+            c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d])
+
+            # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
+
+            ab = b - a
+            ap = src_opening_point - a
+            ac = c - a
+
+            if 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac):
+                self.opening_within = True
+                # print("opening within")
+            else:
+                # dest_src
+                # print("dir vector ", dest_opening_point, src_opening_point)
+                v_src_dest = dest_opening_point - src_opening_point
+                self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -430,6 +493,26 @@ class SimulationSource:
             self.bb.context_values["dest_goal_reached"] = True
         else:
             self.bb.context_values["dest_goal_reached"] = False
+
+        if self.opening_within:
+            self.bb.context_values["hasOpeningWithin"] = True
+        else:
+            self.bb.context_values["hasOpeningWithin"] = False
+            coordinate = np.argsort(self.direction_vector)[::-1]  # descending order
+
+            for index in coordinate:
+                if index == 0:  # Along x-axis w.r.t map
+                    if self.direction_vector[index] > 0:
+                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("inFront")
+                    elif self.direction_vector[index] < 0:
+                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("behind")
+                else:  # Along y-axis w.r.t map
+                    if self.direction_vector[index] > 0:
+                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("left")
+                    elif self.direction_vector[index] < 0:
+                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("right")
+            print(f'direction: {self.direction_vector}, '
+                  f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
 
 
 class Perception:

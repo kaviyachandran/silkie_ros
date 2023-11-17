@@ -88,7 +88,6 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), -goalReached(?d)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
 18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
-18c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest) => P_moveTowards(?dest)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
 18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
@@ -105,6 +104,12 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
 22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
+
+# At the moment, there can be only one conclusion so splitting the motion command in different rules
+23a: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src)  => P_moveBack(?src)
+23b: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveForward(?src)
+23c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src)  => P_moveLeft(?src)
+23d: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src)  => P_moveRight(?src)
 
 20a > 18a
 
