@@ -111,7 +111,13 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 23c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
 23d: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
 
-20a > 18a
+# Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
+# When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
+# is no spilling.  what follows the current state? liquid level increases in the dest
+# current state - liquid leaves the src and enters the dest. pouring is continued,
+# following state - containedIn(Liquid, dest), movesUp(liquid, dest)
+# Can we use it to reduce tilting angle, when the goal is almost reached
+#20a > 18a
 
 ### Which direction to move to in case of spill
 
