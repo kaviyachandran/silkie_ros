@@ -98,18 +98,18 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 19:  SourceRole(?src), DestinationRole(?dest), -near(?src,?dest) => P_moveTowards(?dest)
 
-20: poursTo(?s,?d), isTilted(?s), goalReached(?d) => P_decreaseTilting(?s)
+20: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), isTilted(?s), goalReached(?d) => P_decreaseTilting(?s)
 20a: SourceRole(?s), DestinationRole(?d), near(?s,?d), goalReached(?d) => -canPourTo(?s, ?d)
 ##20b: SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
 
-21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
+##21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)
 22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
 
 # At the moment, there can be only one conclusion so splitting the motion command in different rules
-23a: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
-23b: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
-23c: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
-23d: Container(?src), Container(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
+23a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
+23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
+23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
+23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
@@ -118,6 +118,17 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 # following state - containedIn(Liquid, dest), movesUp(liquid, dest)
 # Can we use it to reduce tilting angle, when the goal is almost reached
 #20a > 18a
+# TODO: When to consider spilling here?
+24: pours(?s, ?l) => hasPath(?l, ?p), PathRole(?p), Thing(?l), Trajector(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d), SourceRole(?s), DestinationRole(?d)
+24a: poursTo(?s, ?d) => SourceRole(?s), DestinationRole(?d), Thing(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d)
+24b: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l)  => Q_movesUpIn(?l, ?d)
+24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostFull(?d)
+24d: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostGoalReached(?d)
+
+25: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostFull(?d), -goalReached(?d) => P_decreaseTilting(?s)
+25a: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostGoalReached(?d), -goalReached(?d) => P_decreaseTilting(?s)
+
+25a > 18c
 
 ### Which direction to move to in case of spill
 
