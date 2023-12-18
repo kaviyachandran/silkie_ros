@@ -29,7 +29,7 @@ class Blackboard(object):
             "dest": "sync_bowl",
             "source_type": "Container",
             "dest_type": "Container",
-            "poured_substance_type": "Liquid",
+            "poured_substance_type": "Thing",
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (0.06827, 0.06603, 0.1861),  # l, d, h
@@ -47,6 +47,7 @@ class Blackboard(object):
             'bouncingOutOfDest': False,  # particles
             'streamTooWide': False,
             'tippingDest': False,
+            'isSpilled': False,
             'collision': False,
             'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
             "source_pose": PoseStamped(),
@@ -209,6 +210,10 @@ class Reasoner:
 
             self.bb.context_values["locationOfSourceRelativeToDestination"] = []
 
+        if self.bb.context_values["isSpilled"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "isSpilled", "",
+                                                            silkie.DEFEASIBLE))
+
         return
 
     @staticmethod
@@ -239,6 +244,7 @@ class SimulationSource:
                                                         self.bb_listener)
         #  variables to update context values
         self.distance: float = 0.0
+        self.spilling: bool = False
         # self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
         # object dependent parameters
@@ -367,7 +373,7 @@ class SimulationSource:
             # print("dist {}".format(self.distance))
 
             if count > 0.20 * self.bb.scene_desc["total_particles"]:
-                self.bb.pred_spilling = True
+                self.spilling = True
                 print("ooopss spilled.... ", count)
             else:
                 print("no spilling ", count)
@@ -452,6 +458,12 @@ class SimulationSource:
             #                                                   silkie.DEFEASIBLE))
             self.bb.context_values["near"] = False
             # print("near false")
+
+        # spilling
+        if self.spilling:
+            self.bb.context_values["isSpilled"] = True
+        else:
+            self.bb.context_values["isSpilled"] = False
 
         # tilted
         if self.cup_orientation >= self.source_tilt_angle:
