@@ -122,10 +122,10 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 24: pours(?s, ?l) => hasPath(?l, ?p), PathRole(?p), Thing(?l), Trajector(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d), SourceRole(?s), DestinationRole(?d)
 24a: poursTo(?s, ?d) => SourceRole(?s), DestinationRole(?d), Thing(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d)
 24b: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l)  => Q_movesUpIn(?l, ?d)
-24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostFull(?d)
+# 24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostFull(?d)
 24d: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostGoalReached(?d)
 
-25: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostFull(?d), -goalReached(?d) => P_decreaseTilting(?s)
+# 25: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostFull(?d), -goalReached(?d) => P_decreaseTilting(?s)
 25a: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostGoalReached(?d), -goalReached(?d) => P_decreaseTilting(?s)
 
 25a > 18c

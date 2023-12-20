@@ -55,6 +55,8 @@ class Blackboard(object):
             "dest_goal_reached": False,
             "sourceUpright": True,
             "hasOpeningWithin": False,
+            "movesUpIn": False,
+            "almostGoalReached": False,
             # - (0, -1) ---> Behind. move upwards. in +y direction
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
@@ -84,13 +86,15 @@ class BlackboardController:
         self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
         self.bb_obj = bb
         self.reasoner = Reasoner(bb)
+        self.queries_for_experts = []
 
     def update_context(self) -> None:
         print("controller")
         for expert in self.bb_obj.experts:
             expert.update()
+            expert.query(self.queries_for_experts)
 
-    def publish_conclusions(self):
+    def get_consequents(self):
         theory = self.reasoner.build_theory()
         if len(theory):
             theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
@@ -105,7 +109,9 @@ class BlackboardController:
             if predicate_list[-1].startswith("P"):
                 temp = {predicate_list[0].split(": ")[-1]: predicate_list[-1].strip("P_")}
                 # print("t  ", temp)
-            publish_data.update(temp)
+                publish_data.update(temp)
+            elif predicate_list[-1].startswith("Q"):
+                self.queries_for_experts.append(predicate_list[-1].strip("Q_"))
         # TODO : publish a string message with behaviors to giskard
         print("data ", str(publish_data))
         self.concluded_behavior_publisher.publish(str(publish_data))
@@ -213,6 +219,22 @@ class Reasoner:
         if self.bb.context_values["isSpilled"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "isSpilled", "",
                                                             silkie.DEFEASIBLE))
+        elif self.bb.context_values["isSpilled"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-isSpilled", "",
+                                                            silkie.DEFEASIBLE))
+
+        if self.bb.context_values["movesUpIn"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "movesUpIn",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        elif self.bb.context_values["movesUpIn"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-movesUpIn",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        if self.bb.context_values["almostGoalReached"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "almostGoalReached",
+                                                            "", silkie.DEFEASIBLE))
+        elif self.bb.context_values["almostGoalReached"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-almostGoalReached",
+                                                            "", silkie.DEFEASIBLE))
 
         return
 
@@ -240,13 +262,14 @@ class SimulationSource:
         self.tf = tf.Transformer(True, rospy.Duration(10.0))
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
-        self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray,
-                                                        self.bb_listener)
+        self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
+        self.sim_queries: list = []
         #  variables to update context values
         self.distance: float = 0.0
         self.spilling: bool = False
         # self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
+        self.object_in_dest: int = 0
         # object dependent parameters
 
         self.src_bounding_box_pose = PoseStamped()
@@ -264,6 +287,8 @@ class SimulationSource:
         self.cup_orientation = 0.0
         self.cup_direction = 1
         self.dest_goal_reached = False
+        self.almost_goal_reached = False  # 75 % goal reached
+        self.particle_increase_in_dest = False
 
         self.normal_vector = np.array([0, 0, 1])
         self.opening_within = False
@@ -354,8 +379,14 @@ class SimulationSource:
             current_particle_out = count_not_in_source - sum(self.object_flow)
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
+            elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
+                self.almost_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
+            if self.object_in_dest < count_in_dest:
+                self.particle_increase_in_dest = True
+                self.object_in_dest = count_in_dest
+
             # if len(self.object_flow) > 3:
             #     obj_avg = np.average(self.object_flow[-3:])
             #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
@@ -420,7 +451,7 @@ class SimulationSource:
             # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
             # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
             # To ensure the source opening lies within the dest
-            l, d = (self.bb.scene_desc["dest_dim"][1]*0.75) / 2, (self.bb.scene_desc["dest_dim"][0]*0.75) / 2
+            l, d = (self.bb.scene_desc["dest_dim"][1] * 0.75) / 2, (self.bb.scene_desc["dest_dim"][0] * 0.75) / 2
             a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d])
             b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d])
             c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d])
@@ -526,6 +557,16 @@ class SimulationSource:
             print(f'direction: {self.direction_vector}, '
                   f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
 
+    def query(self, queries: list):
+        # Just compute the queries here. the variables you use should come from context values which is already set
+        # moves up - increasing particles by time
+        # almost full - 80 % goal reached
+        for query in queries:
+            if query == "movesUpIn":
+                self.bb.context_values[query] = self.particle_increase_in_dest
+            elif query == "almostGoalReached":
+                self.bb.context_values[query] = self.almost_goal_reached
+
 
 class Perception:
     pass
@@ -541,5 +582,5 @@ if __name__ == '__main__':
     rate = rospy.Rate(10)  # 10hz
     while not rospy.is_shutdown():
         controller.update_context()
-        controller.publish_conclusions()
+        controller.get_consequents()
         rate.sleep()
