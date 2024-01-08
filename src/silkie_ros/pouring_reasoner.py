@@ -136,6 +136,9 @@ class Reasoner:
                                            self.bb.scene_desc["poured_substance_type"], "", silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
+
         return facts
 
     def create_facts_from_context(self):
@@ -219,20 +222,20 @@ class Reasoner:
         if self.bb.context_values["isSpilled"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "isSpilled", "",
                                                             silkie.DEFEASIBLE))
-        elif self.bb.context_values["isSpilled"]:
+        elif not self.bb.context_values["isSpilled"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-isSpilled", "",
                                                             silkie.DEFEASIBLE))
 
         if self.bb.context_values["movesUpIn"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "movesUpIn",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
-        elif self.bb.context_values["movesUpIn"]:
+        elif not self.bb.context_values["movesUpIn"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-movesUpIn",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
         if self.bb.context_values["almostGoalReached"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "almostGoalReached",
                                                             "", silkie.DEFEASIBLE))
-        elif self.bb.context_values["almostGoalReached"]:
+        elif not self.bb.context_values["almostGoalReached"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-almostGoalReached",
                                                             "", silkie.DEFEASIBLE))
 
@@ -248,7 +251,7 @@ class Reasoner:
         conclusions = ()
         self.create_facts_from_context()
         if len(self.current_facts) != 0:
-            # print("building conclusion")
+            print("building conclusion")
             rules = silkie.loadDFLRules('./rules.dfl')
             conclusions = silkie.buildTheory(rules, self.current_facts, {}, debugTheory=True)
         return conclusions
