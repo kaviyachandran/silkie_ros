@@ -44,7 +44,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 10: Container(?s), Container(?d), poursTo(?s,?d), overflows(?d) => -canPourTo(?s,?d)
 
 10a: Container(?s), Container(?d), SourceRole(?s), DestinationRole(?d), poursTo(?s, ?d), -canPourTo(?s, ?d), LocationRole(?l), at(?s, ?l), hasDestination(?s, ?g) => willBeUprightAt(?s, ?g)
-10b: uprightAt(?s,?g) => Liquid(?x), contains(?s,?x), LocationRole(?g), at(?s,?g), hasOpening(?s, ?o), -passThrough(?x, ?o), -canPourTo(?s,?d)
+10b: Liquid(?x), contains(?s,?x), LocationRole(?g), at(?s,?g), hasOpening(?s, ?o), -passThrough(?x, ?o), -canPourTo(?s,?d) => uprightAt(?s,?g)
 
 # what does spilling mean? - when a piece of liquid is outside the destination. We need to adjust the pose or the tilt angle
 # todo - can we state poursTo already
@@ -119,8 +119,8 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 # Can we use it to reduce tilting angle, when the goal is almost reached
 #20a > 18a
 # TODO: When to consider spilling here?
-24: pours(?s, ?l) => hasPath(?l, ?p), PathRole(?p), Thing(?l), Trajector(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d), SourceRole(?s), DestinationRole(?d)
-24a: poursTo(?s, ?d) => SourceRole(?s), DestinationRole(?d), Thing(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d)
+24: hasPath(?l, ?p), PathRole(?p), Thing(?l), Trajector(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d), SourceRole(?s), DestinationRole(?d) => pours(?s, ?l)
+24a: SourceRole(?s), DestinationRole(?d), Thing(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d) => poursTo(?s, ?d)
 24b: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l)  => Q_movesUpIn(?l, ?d)
 # 24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostFull(?d)
 24d: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostGoalReached(?d)
