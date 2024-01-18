@@ -3,7 +3,7 @@
         context values.
         2. A controller that publishes messages to Giskard based on the current context
 3. Models / objects are assumed to be with length along x-axis, depth along y-axis
-
+            Separate the predicates based on the actions?
 
 """
 
@@ -42,48 +42,48 @@ class Blackboard(object):
 
         # self.max_pouring_height = 0.3
 
-		self.experts = []
-		self.scene_desc = {
-			"source": "pot",
-			"dest": "bowl",
-			"source_type": "Container",
-			"dest_type": "Container",
+        self.experts = []
+        self.scene_desc = {
+            "source": "pot",
+            "dest": "bowl",
+            "source_type": "Container",
+            "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
-			"poured_substance": "particles",
+            "poured_substance": "particles",
             "total_particles": 100,
             "source_dim": (),
             "dest_dim": (),
             "dest_goal": 60,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
-			"retained_substance_type": "Thing",
-			"retained_substance": "big_ball",
-			"action_type": "draining"
-			# todo: More info on actions performed? for e.g: draining requires retained substance and poured substance
-		}
-		self.context_values = {
-			'updatedBy': "",
-			'near': False,  # src and dest
-			'isTilted': False,  # src
+            "retained_substance_type": "Thing",
+            "retained_substance": "big_ball",
+            "action_type": "draining"
+            # todo: More info on actions performed? for e.g: draining requires retained substance and poured substance
+        }
+        self.context_values = {
+            'updatedBy': "",
+            'near': False,  # src and dest
+            'isTilted': False,  # src
             'isDestTilted': False,  # dest
-			'poursTo': False,  # nothingOut # particles
-			'tooSlow': False,  # particles
-			'tooFast': False,  # particles
-			'tricklesAlongSource': False,  # particles
-			'bouncingOutOfDest': False,  # particles
-			'streamTooWide': False,
-			'tippingDest': False,
-			'isSpilled': False,
+            'poursTo': False,  # nothingOut # particles
+            'tooSlow': False,  # particles
+            'tooFast': False,  # particles
+            'tricklesAlongSource': False,  # particles
+            'bouncingOutOfDest': False,  # particles
+            'streamTooWide': False,
+            'tippingDest': False,
+            'isSpilled': False,
             'isSpilling': False,
-			'collision': False,
-			'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
-			"source_pose": PoseStamped(),
-			"dest_pose": PoseStamped(),
-			"retained_substance_pose": PoseStamped(),
-			"dest_goal_reached": False,
-			"sourceUpright": True,
-			"hasOpeningWithin": False,
-			"movesUpIn": False,
-			"almostGoalReached": False,
+            'collision': False,
+            'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
+            "source_pose": PoseStamped(),
+            "dest_pose": PoseStamped(),
+            "retained_substance_pose": PoseStamped(),
+            "dest_goal_reached": False,
+            "sourceUpright": True,
+            "hasOpeningWithin": False,
+            "movesUpIn": False,
+            "almostGoalReached": False,
             "srcCornerAligned": False,
             "rotationDirection": "",
             "overshoot": False,
@@ -97,12 +97,12 @@ class Blackboard(object):
             "locationOfSourceRelativeToDestination": [],
             "srcCornerSpoutRegion": "",
             "collides": False,
-			"retainedSubstanceCloseToOpening": False,
-			"containsLiquid": False,
+            "retainedSubstanceCloseToOpening": False,
+            
             "destinationHasOpening": "",
             "srcHeightLimits": 0.0,
             "srcFarAbove": False
-		}
+        }
         # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
         # if dimension_data:
         #     self.set_dimension_values(dimension_data)
@@ -117,20 +117,20 @@ class Blackboard(object):
                 self.context_values["srcHeightLimits"] = self.src_height[index]
                 break
 
-	def set_scene_desc(self, key: str, value):
-		self.scene_desc[key] = value
+    def set_scene_desc(self, key: str, value):
+        self.scene_desc[key] = value
 
-	def get_scene_desc(self, key: str):
-		return self.context_values[key]
+    def get_scene_desc(self, key: str):
+        return self.context_values[key]
 
-	def set_context_values(self, key: str, value):
-		self.context_values[key] = value
+    def set_context_values(self, key: str, value):
+        self.context_values[key] = value
 
-	def get_context_values(self, key: str):
-		return self.context_values[key]
+    def get_context_values(self, key: str):
+        return self.context_values[key]
 
-	def add_experts(self, expert):
-		self.experts.append(expert)
+    def add_experts(self, expert):
+        self.experts.append(expert)
 
     def set_dimension_values(self, data):
         for marker in data.markers:
@@ -145,18 +145,18 @@ class Blackboard(object):
 class BlackboardController:
 
     def __init__(self, bb: Blackboard, visualize: bool):
-		self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
+        self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
 
-		self.bb_obj = bb
-		self.reasoner = Reasoner(bb)
-		self.queries_for_experts = []
+        self.bb_obj = bb
+        self.reasoner = Reasoner(bb)
+        self.queries_for_experts = []
         self.visualize = visualize
         self.fig_counter = 0
         self.fig, self.plotWindow = None, None
         if self.visualize:
             self.fig, self.plotWindow = plt.subplots(figsize=(7, 7))
 
-	def update_context(self) -> None:
+    def update_context(self) -> None:
         print("controller ", self.queries_for_experts)
         print("vis ", self.visualize)
         for expert in self.bb_obj.experts:
@@ -185,10 +185,10 @@ class BlackboardController:
             plt.pause(0.001)
             input("Press ENTER to continue")
 
-	def get_consequents(self):
-		theory = self.reasoner.build_theory()
-		if len(theory):
-			theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
+    def get_consequents(self):
+        theory = self.reasoner.build_theory()
+        if len(theory):
+            theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
             print(f'counter:{self.fig_counter} theory: {theoryStr_canPour}')
             concluded_facts = theoryStr_canPour.split("\n")
             # print("t ", theory_canPour)
@@ -198,12 +198,12 @@ class BlackboardController:
                                              graphStoragePrefix=None, fig=self.fig, plotWindow=self.plotWindow,
                                              k=self.fig_counter)
             self.fig_counter += 1
-		else:
-			return
-		publish_data: Dict = {}
-		for conclusion in concluded_facts:
-			predicate_list = conclusion.split(" => ")
-			temp = {}
+        else:
+            return
+        publish_data: Dict = {}
+        for conclusion in concluded_facts:
+            predicate_list = conclusion.split(" => ")
+            temp = {}
             if predicate_list[-1].startswith("P_"):
                 temp = {predicate_list[0].split(": ")[-1]: predicate_list[-1].strip("P_")}
                 # print("t  ", temp)
@@ -234,25 +234,25 @@ class Reasoner:
                                            self.bb.scene_desc["poured_substance_type"], "", silkie.DEFEASIBLE))
         # facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
         #                                    self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
-		facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
-		facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
-		if self.bb.scene_desc["action_type"] == "draining":
-			facts.update(Reasoner.create_facts(self.bb.scene_desc["action_type"], "Draining", "", silkie.DEFEASIBLE))
-			facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "RetainedSubstanceRole", "",
-		                                   silkie.DEFEASIBLE))
-			facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
-		                                   self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE))
-		if self.bb.context_values["containsLiquid"]:
-			facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
-		                                   self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
-		elif not self.bb.context_values["containsLiquid"]:
-			facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
-		                                   self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
+        if self.bb.scene_desc["action_type"] == "draining":
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["action_type"], "Draining", "", silkie.DEFEASIBLE))
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "RetainedSubstanceRole", "",
+                                               silkie.DEFEASIBLE))
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                               self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE))
+        if self.bb.context_values["containsLiquid"]:
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                               self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["containsLiquid"]:
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
+                                               self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
 	if self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasEdges", "", silkie.DEFEASIBLE))
         elif not self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasEdges", "", silkie.DEFEASIBLE))
-	return facts
+        return facts
 
     def create_facts_from_context(self):
         self.current_facts.update(self.base_facts)
@@ -269,10 +269,10 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "poursTo",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
-		elif not self.bb.context_values["poursTo"]:
-			self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-poursTo",
-			                                                self.bb.scene_desc["dest"],
-			                                                silkie.DEFEASIBLE))
+        elif not self.bb.context_values["poursTo"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-poursTo",
+                                                            self.bb.scene_desc["dest"],
+                                                            silkie.DEFEASIBLE))
 
         if self.bb.context_values["isTilted"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "isTilted", "",
@@ -427,13 +427,13 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-farAbove",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
-		if self.bb.context_values["retainedSubstanceCloseToOpening"]:
-			self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "closeToOpening",
-			                                                "", silkie.DEFEASIBLE))
-		elif not self.bb.context_values["retainedSubstanceCloseToOpening"]:
-			self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "-closeToOpening",
-			                                                "", silkie.DEFEASIBLE))
-		return
+        if self.bb.context_values["retainedSubstanceCloseToOpening"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "closeToOpening",
+                                                            "", silkie.DEFEASIBLE))
+        elif not self.bb.context_values["retainedSubstanceCloseToOpening"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "-closeToOpening",
+                                                            "", silkie.DEFEASIBLE))
+        return
 
     @staticmethod
     def create_facts(s: str, p: str, o: str = None, fact_type: int = silkie.DEFEASIBLE) -> dict:
@@ -503,9 +503,9 @@ class SimulationSource:
         self.debug = doDebug
         self.corner_aligned = False
         self.corner_region = ""
-		self.distance_from_retained_substance_to_opening = 0.0
+        self.distance_from_retained_substance_to_opening = 0.0
 
-		
+
         self.rot_dir = ""
         self.is_src_above = False
         self.collides = False
@@ -775,17 +775,17 @@ class SimulationSource:
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
 
-			pot_P_bigball = self.tf_transform.lookupTransform(self.bb.scene_desc["source"],
-			                                                  self.bb.scene_desc["retained_substance"],
-			                                                  rospy.Time())
-			_, self.distance_from_retained_substance_to_opening = closest_point_on_rectangle_to_point(
-				self.bb.context_values["src_pose"],
-				self.bb.scene_desc["source_dim"],
-				pot_P_bigball)
+            pot_P_bigball = self.tf_transform.lookupTransform(self.bb.scene_desc["source"],
+                                                              self.bb.scene_desc["retained_substance"],
+                                                              rospy.Time())
+            _, self.distance_from_retained_substance_to_opening = closest_point_on_rectangle_to_point(
+                self.bb.context_values["src_pose"],
+                self.bb.scene_desc["source_dim"],
+                pot_P_bigball)
 
-	def update(self):
-		if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
-			# todo: add a value based on the objects involved
+    def update(self):
+        if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
+            # todo: add a value based on the objects involved
 
             self.bb.context_values["near"] = True
         # hashed = hash((self.bb.source, "near", self.bb.dest))
@@ -921,11 +921,11 @@ class SimulationSource:
             self.bb.context_values["undershoot"] = True
         else:
             self.bb.context_values["undershoot"] = False
-		# retained_substance_close_to_opening
-		if self.distance_from_retained_substance_to_opening <= 0.3:
-			self.bb.context_values["retainedSubstanceCloseToOpening"] = True
-		else:
-			self.bb.context_values["retainedSubstanceCloseToOpening"] = False
+        # retained_substance_close_to_opening
+        if self.distance_from_retained_substance_to_opening <= 0.3:
+            self.bb.context_values["retainedSubstanceCloseToOpening"] = True
+        else:
+            self.bb.context_values["retainedSubstanceCloseToOpening"] = False
 
         self.collides = False
 
@@ -935,8 +935,8 @@ class SimulationSource:
         # almost full - 80 % goal reached
         for queryStr in queries:
             query = queryStr.split("(")[0]
-			if query == "movesUpIn":
-				self.bb.context_values[query] = self.particle_increase_in_dest
+            if query == "movesUpIn":
+                self.bb.context_values[query] = self.particle_increase_in_dest
             if query == "almostGoalReached":
                 self.bb.context_values[query] = self.almost_goal_reached
             if query == "poursTo":
@@ -960,7 +960,7 @@ if __name__ == '__main__':
     doVisualize = arguments.visualize
     debug = arguments.debug
 
-	blackboard = Blackboard()
+    blackboard = Blackboard()
     blackboard.add_experts(SimulationSource(blackboard, debug))
 
     controller = BlackboardController(blackboard, visualize=doVisualize)
