@@ -164,6 +164,17 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 28c: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveBack(?src)
 28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
 28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
+### spout
+26:  Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasOpening(?src, ?opening), hasSpout(?src, ?spout), hasPart(?opening, ?spout) => substanceLeavesThrough(?src, ?spout)
+26a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasSpout(?src, ?spout), poursTo(?src, ?dest) => substanceLeavesThrough(?src, ?spout)
+# 26c: SourceRole(?src), DestinationRole(?dest), substanceLeavesThrough(?src, ?spout), Liquid(?l), SolidSubstance(?t), contains(?src, ?l), contains(?src, ?t), ?passThrough(?l, ?spout), containedIn(?t, ?src) => Draining(?act)
+26d: containedIn(?l, ?src) => inside(?l, ?src)
+26e: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest)  => drainsFrom(?l, ?t)
+26f:  SourceRole(?src),  PouredSubstanceRole(?l), RetainedSubstanceRole(?t), -contains(?src, ?l), contains(?src, ?t) => drainGoalReached(?src)
+26g: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), closeToOpening(?t), -drainGoalReached(?src) => -canPourTo(?src, ?dest)
+26h: SourceRole(?src), DestinationRole(?dest), drainGoalReached(?src) => -canPourTo(?src, ?dest)
+26i: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest), -drainGoalReached(?src), closeToOpening(?t) => -canPourTo(?src, ?dest)
+27: Draining(?act), -drainGoalReached(?src), SourceRole(?src), DestinationRole(?dest), poursTo(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l) => Q_contains(?src, ?l)
 # above and below
 28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest) => P_moveUp(?src)
 
