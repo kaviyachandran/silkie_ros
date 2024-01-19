@@ -242,12 +242,6 @@ class Reasoner:
                                                silkie.DEFEASIBLE))
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
                                                self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE))
-        if self.bb.context_values["containsLiquid"]:
-            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
-                                               self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
-        elif not self.bb.context_values["containsLiquid"]:
-            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
-                                               self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
 	if self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasEdges", "", silkie.DEFEASIBLE))
         elif not self.bb.scene_desc["sourceHasEdges"]:
@@ -427,6 +421,13 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-farAbove",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
+        if self.bb.context_values["containsLiquid"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["containsLiquid"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
+                                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+
         if self.bb.context_values["retainedSubstanceCloseToOpening"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "closeToOpening",
                                                             "", silkie.DEFEASIBLE))
@@ -504,7 +505,7 @@ class SimulationSource:
         self.corner_aligned = False
         self.corner_region = ""
         self.distance_from_retained_substance_to_opening = 0.0
-        self.distance_of_retained_substance_to_opening_threshold = 0.15
+        self.distance_of_retained_substance_to_opening_threshold = 0.015
 
         self.rot_dir = ""
         self.is_src_above = False
@@ -610,7 +611,6 @@ class SimulationSource:
                     # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                     # count += 1
                     if inside_src:  # ToDo : check if the particle is inside the source has a velocity
-                        self.count_in_src += 1
                     elif self.util_helper.points_within_bounds_3d(dest_ab, dest_ac, dest_ad, dest_ap):
                         count_in_dest += 1
                     else:
@@ -775,13 +775,19 @@ class SimulationSource:
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
 
-            pot_P_bigball = self.tf_transform.lookupTransform(self.bb.scene_desc["source"],
+            pot_bigball = self.tf_transform.lookupTransform(self.bb.scene_desc["source"],
                                                               self.bb.scene_desc["retained_substance"],
-                                                              rospy.Time())
+                                                              rospy.Time(0))
+            pot_P_bigball = Point()
+            pot_P_bigball.x = pot_bigball[0][0]
+            pot_P_bigball.y = pot_bigball[0][1]
+            pot_P_bigball.z = pot_bigball[0][2]
+
             _, self.distance_from_retained_substance_to_opening = closest_point_on_rectangle_to_point(
-                self.bb.context_values["src_pose"],
+                self.bb.context_values["source_pose"].pose,
                 self.bb.scene_desc["source_dim"],
                 pot_P_bigball)
+            print("distance_from_retained_substance ", self.distance_from_retained_substance_to_opening)
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -922,7 +928,7 @@ class SimulationSource:
         else:
             self.bb.context_values["undershoot"] = False
         # retained_substance_close_to_opening
-        if self.distance_from_retained_substance_to_opening <= self.distanceOfRetainedSubstanceToOpeningThreshold:
+        if self.distance_from_retained_substance_to_opening <= self.distance_of_retained_substance_to_opening_threshold:
             self.bb.context_values["retainedSubstanceCloseToOpening"] = True
         else:
             self.bb.context_values["retainedSubstanceCloseToOpening"] = False
