@@ -504,7 +504,7 @@ class SimulationSource:
         self.corner_aligned = False
         self.corner_region = ""
         self.distance_from_retained_substance_to_opening = 0.0
-
+        self.distance_of_retained_substance_to_opening_threshold = 0.15
 
         self.rot_dir = ""
         self.is_src_above = False
@@ -922,7 +922,7 @@ class SimulationSource:
         else:
             self.bb.context_values["undershoot"] = False
         # retained_substance_close_to_opening
-        if self.distance_from_retained_substance_to_opening <= 0.3:
+        if self.distance_from_retained_substance_to_opening <= self.distanceOfRetainedSubstanceToOpeningThreshold:
             self.bb.context_values["retainedSubstanceCloseToOpening"] = True
         else:
             self.bb.context_values["retainedSubstanceCloseToOpening"] = False

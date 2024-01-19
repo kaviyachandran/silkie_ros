@@ -171,6 +171,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 26d: containedIn(?l, ?src) => inside(?l, ?src)
 26e: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest)  => drainsFrom(?l, ?t)
 26f:  SourceRole(?src),  PouredSubstanceRole(?l), RetainedSubstanceRole(?t), -contains(?src, ?l), contains(?src, ?t) => drainGoalReached(?src)
+26fa: SourceRole(?src),  PouredSubstanceRole(?l), contains(?src, ?l) => -drainGoalReached(?src)
 26g: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), closeToOpening(?t), -drainGoalReached(?src) => -canPourTo(?src, ?dest)
 26h: SourceRole(?src), DestinationRole(?dest), drainGoalReached(?src) => -canPourTo(?src, ?dest)
 26i: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest), -drainGoalReached(?src), closeToOpening(?t) => -canPourTo(?src, ?dest)
