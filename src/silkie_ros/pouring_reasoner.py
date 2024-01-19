@@ -422,8 +422,8 @@ class Reasoner:
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
         if self.bb.context_values["containsLiquid"]:
-            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
-                                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+            self.current_facts["contains"].addFact(self.bb.scene_desc["source"],
+                                                   self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE)
         elif not self.bb.context_values["containsLiquid"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
                                                             self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
@@ -775,9 +775,9 @@ class SimulationSource:
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
 
-            pot_bigball = self.tf_transform.lookupTransform(self.bb.scene_desc["source"],
-                                                              self.bb.scene_desc["retained_substance"],
-                                                              rospy.Time(0))
+            pot_bigball = self.tf_transform.lookupTransform(source_frame=self.bb.scene_desc["retained_substance"],
+                                                            target_frame=self.bb.scene_desc["source"],
+                                                            time=rospy.Time(0))
             pot_P_bigball = Point()
             pot_P_bigball.x = pot_bigball[0][0]
             pot_P_bigball.y = pot_bigball[0][1]
