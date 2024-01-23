@@ -8,7 +8,7 @@
 """
 
 import math
-from typing import Dict, Any
+from typing import Dict
 
 import numpy as np
 import silkie
@@ -24,7 +24,7 @@ from mujoco_msgs.msg import ObjectStateArray
 from mujoco_msgs.msg import ContactInfo
 from std_msgs.msg import String
 import tf
-from tf.transformations import euler_from_quaternion, quaternion_matrix
+from tf.transformations import quaternion_matrix
 from visualization_msgs.msg import MarkerArray
 
 
@@ -783,10 +783,12 @@ class SimulationSource:
             pot_P_bigball.y = pot_bigball[0][1]
             pot_P_bigball.z = pot_bigball[0][2]
 
-            _, self.distance_from_retained_substance_to_opening = closest_point_on_rectangle_to_point(
-                self.bb.context_values["source_pose"].pose,
-                self.bb.scene_desc["source_dim"],
-                pot_P_bigball)
+            self.distance_from_retained_substance_to_opening = get_distance_to_retained_object \
+                (lies_along="y",
+                 direction="+x",
+                 obj_pose=self.bb.context_values["source_pose"].pose,
+                 obj_dim=self.bb.scene_desc["source_dim"],
+                 pot_P_obj=pot_P_bigball)
             print("distance_from_retained_substance ", self.distance_from_retained_substance_to_opening)
 
     def update(self):
