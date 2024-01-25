@@ -44,8 +44,8 @@ class Blackboard(object):
 
         self.experts = []
         self.scene_desc = {
-            "source": "pot",
-            "dest": "bowl",
+            "source": "free_cup",
+            "dest": "free_cup2",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
