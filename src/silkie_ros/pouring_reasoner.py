@@ -25,15 +25,15 @@ class Blackboard(object):
     def __init__(self):
         self.experts = []
         self.scene_desc = {
-            "source": "sync_cup2",
-            "dest": "sync_bowl",
+            "source": "free_cup",
+            "dest": "free_cup2",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (0.06827, 0.06603, 0.1861),  # l, d, h
-            "dest_dim": (0.2, 0.2, 0.1799),
+            "dest_dim": (0.06827, 0.06603, 0.1861),
             "dest_goal": 60
         }
         self.context_values = {
@@ -455,17 +455,19 @@ class SimulationSource:
             # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
             # To ensure the source opening lies within the dest
             l, d = (self.bb.scene_desc["dest_dim"][1] * 0.75) / 2, (self.bb.scene_desc["dest_dim"][0] * 0.75) / 2
-            a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d])
-            b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d])
-            c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d])
+            a = np.array([dest_opening_point[0] - d, dest_opening_point[1] + l])
+            b = np.array([dest_opening_point[0] - d, dest_opening_point[1] - l])
+            c = np.array([dest_opening_point[0] + d, dest_opening_point[1] + l])
 
             # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
 
             ab = b - a
             ap = src_opening_point - a
             ac = c - a
-
-            if 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac):
+            # print("points to compute opening ", a, b, c, src_opening_point)
+            # print("vectors ", ab, ap, ac)
+            # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
+            if 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac)):
                 self.opening_within = True
                 # print("opening within")
             else:
