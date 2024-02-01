@@ -110,6 +110,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
 23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
 23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
+23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), is_spilled(?l)  => P_decreaseTilting(?src)
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
