@@ -9,10 +9,11 @@ from typing import Dict, Any
 
 import numpy as np
 import silkie
+from utils import get_distance_to_retained_object, is_source_opening_within, rotate_point
 
 import rospy
 import visualization_msgs
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped, Point, Pose
 from mujoco_msgs.msg import ObjectStateArray
 from std_msgs.msg import String
 import tf
@@ -21,6 +22,7 @@ from visualization_msgs.msg import MarkerArray
 
 
 class Blackboard(object):
+    # While adding new scenes, change name, dimensions
 
     def __init__(self):
         self.experts = []
@@ -29,7 +31,7 @@ class Blackboard(object):
             "dest": "free_cup2",
             "source_type": "Container",
             "dest_type": "Container",
-            "poured_substance_type": "Thing",
+            "poured_substance_type": "Liquid",  # changing Thing to Liquid
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (0.06827, 0.06603, 0.1861),  # l, d, h
@@ -106,7 +108,7 @@ class BlackboardController:
         for conclusion in concluded_facts:
             predicate_list = conclusion.split(" => ")
             temp = {}
-            if predicate_list[-1].startswith("P"):
+            if predicate_list[-1].startswith("P_"):
                 temp = {predicate_list[0].split(": ")[-1]: predicate_list[-1].strip("P_")}
                 # print("t  ", temp)
                 publish_data.update(temp)
@@ -262,7 +264,7 @@ class SimulationSource:
     def __init__(self, bb):
         self.dest_limits: tuple = ()
         self.src_limits: tuple = ()
-        self.tf = tf.Transformer(True, rospy.Duration(10.0))
+        self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
         self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
@@ -275,9 +277,9 @@ class SimulationSource:
         self.object_in_dest: int = 0
         # object dependent parameters
 
-        self.src_bounding_box_pose = PoseStamped()
+        self.src_bounding_box_pose = Pose()
         self.src_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
-        self.dest_bounding_box_pose = PoseStamped()
+        self.dest_bounding_box_pose = Pose()
         self.dest_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
         self.bb_values_set = False
 
@@ -444,36 +446,26 @@ class SimulationSource:
             #       f' src_vector:{src_vector}')
 
             # compute opening within or not
-            src_opening_point = np.array(
-                [self.src_bounding_box_pose.position.x,
-                 self.src_bounding_box_pose.position.y])
-            # self.src_bounding_box_pose.position.z + self.src_bounding_box_dimensions[2] / 2)
-            dest_opening_point = np.array(
-                [self.bb.context_values["dest_pose"].pose.position.x,
-                 self.bb.context_values["dest_pose"].pose.position.y])
-            # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
-            # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
-            # To ensure the source opening lies within the dest
-            l, d = (self.bb.scene_desc["dest_dim"][1] * 0.75) / 2, (self.bb.scene_desc["dest_dim"][0] * 0.75) / 2
-            a = np.array([dest_opening_point[0] - d, dest_opening_point[1] + l])
-            b = np.array([dest_opening_point[0] - d, dest_opening_point[1] - l])
-            c = np.array([dest_opening_point[0] + d, dest_opening_point[1] + l])
-
-            # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
-
-            ab = b - a
-            ap = src_opening_point - a
-            ac = c - a
-            # print("points to compute opening ", a, b, c, src_opening_point)
-            # print("vectors ", ab, ap, ac)
-            # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
-            if 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac)):
+            if is_source_opening_within(self.bb.context_values["source_pose"].pose, self.bb.scene_desc["source_dim"],
+                                        self.bb.context_values["dest_pose"].pose, self.bb.scene_desc["dest_dim"]):
                 self.opening_within = True
                 # print("opening within")
             else:
                 # dest_src
                 # print("dir vector ", dest_opening_point, src_opening_point)
-                v_src_dest = dest_opening_point - src_opening_point
+                rotation_mat = quaternion_matrix(np.array([self.bb.context_values["source_pose"].pose.orientation.x,
+                                                           self.bb.context_values["source_pose"].pose.orientation.y,
+                                                           self.bb.context_values["source_pose"].pose.orientation.z,
+                                                           self.bb.context_values["source_pose"].pose.orientation.w]))
+
+                src_opening_point = rotate_point(np.array(
+                    [self.src_bounding_box_pose.position.x,
+                     self.src_bounding_box_pose.position.y,
+                     self.src_bounding_box_pose.position.z]), rotation_mat),
+
+                v_src_dest = np.array(
+                    [self.bb.context_values["dest_pose"].pose.position.x,
+                     self.bb.context_values["dest_pose"].pose.position.y]) - src_opening_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
     def update(self):
