@@ -688,7 +688,6 @@ class SimulationSource:
             else:
                 self.is_src_above = False
             # compute opening within or not
-
             # print(f'src_Pose: {self.bb.context_values["source_pose"].pose}, src_dim: {self.bb.scene_desc[
             # "source_dim"]}, ' f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {
             # self.bb.scene_desc["dest_dim"]}')

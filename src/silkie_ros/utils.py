@@ -305,6 +305,8 @@ class Utils(object):
         B = self.rotate_point(B, rot_matrix)
         C = self.rotate_point(C, rot_matrix)
         D = self.rotate_point(D, rot_matrix)
+    # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
+    return 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac))
 
         return A, B, C, D
 
