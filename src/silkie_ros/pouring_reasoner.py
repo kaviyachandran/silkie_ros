@@ -34,8 +34,8 @@ class Blackboard(object):
             "poured_substance_type": "Liquid",  # changing Thing to Liquid
             "poured_substance": "particles",
             "total_particles": 200,
-            "source_dim": (0.06827, 0.06603, 0.1861),  # l, d, h
-            "dest_dim": (0.06827, 0.06603, 0.1861),
+            "source_dim": (),
+            "dest_dim": (),
             "dest_goal": 60
         }
         self.context_values = {
@@ -65,6 +65,9 @@ class Blackboard(object):
             # - (-1, 0) ---> Left. move right. in +x direction
             "locationOfSourceRelativeToDestination": [],
         }
+        dimension_data = rospy.wait_for_message("/mujoco/visualization_marker_array", MarkerArray, timeout=5)
+        if dimension_data:
+            self.set_dimension_values(dimension_data)
 
     def set_scene_desc(self, key: str, value):
         self.scene_desc[key] = value
@@ -81,11 +84,19 @@ class Blackboard(object):
     def add_experts(self, expert):
         self.experts.append(expert)
 
+    def set_dimension_values(self, data):
+        for marker in data.markers:
+            if marker.ns == self.context_values["source"]:
+                self.scene_desc["source_dim"] = (marker.scale.x, marker.scale.y, marker.scale.z)
+            elif marker.ns == self.context_values["dest"]:
+                self.scene_desc["dest_dim"] = (marker.scale.x, marker.scale.y, marker.scale.z)
+
 
 class BlackboardController:
 
     def __init__(self, bb):
         self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
+
         self.bb_obj = bb
         self.reasoner = Reasoner(bb)
         self.queries_for_experts = []
