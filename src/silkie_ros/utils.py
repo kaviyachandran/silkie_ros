@@ -99,9 +99,9 @@ def is_source_opening_within(src_pose: Pose, src_dim: tuple, dest_pose: Pose, de
     # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
     # To ensure the source opening lies within the dest
     l, d, h = (dest_dim[0] * 0.75) / 2, (dest_dim[1] * 0.75) / 2, dest_opening_point[2]
-    a = np.array([dest_opening_point[0] - d, dest_opening_point[1] + l], h)
-    b = np.array([dest_opening_point[0] - d, dest_opening_point[1] - l], h)
-    c = np.array([dest_opening_point[0] + d, dest_opening_point[1] + l], h)
+    a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d], h)
+    b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d], h)
+    c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d], h)
 
     ab = b - a
     ac = c - a

@@ -2,6 +2,7 @@
 1. Create a skeleton with blackboard class, Experts like simulation, perception and other process can update the
 context values.
 2. A controller that publishes messages to Giskard based on the current context
+3. Models / objects are assumed to be with length along x-axis, depth along y-axis
 """
 
 import math
