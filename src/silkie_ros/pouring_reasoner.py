@@ -3,6 +3,8 @@
 context values.
 2. A controller that publishes messages to Giskard based on the current context
 3. Models / objects are assumed to be with length along x-axis, depth along y-axis
+
+
 """
 
 import math
@@ -10,7 +12,8 @@ from typing import Dict, Any
 
 import numpy as np
 import silkie
-from utils import get_distance_to_retained_object, is_source_opening_within, rotate_point
+
+from utils import Utils
 
 import rospy
 import visualization_msgs
@@ -66,9 +69,13 @@ class Blackboard(object):
             # - (-1, 0) ---> Left. move right. in +x direction
             "locationOfSourceRelativeToDestination": [],
         }
-        dimension_data = rospy.wait_for_message("/mujoco/visualization_marker_array", MarkerArray, timeout=5)
-        if dimension_data:
-            self.set_dimension_values(dimension_data)
+        # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
+        # if dimension_data:
+        #     self.set_dimension_values(dimension_data)
+        # else:
+        self.scene_desc["source_dim"] = (0.0646, 0.0646, 0.18)
+        self.scene_desc["dest_dim"] = (0.0646, 0.0646, 0.18)
+
 
     def set_scene_desc(self, key: str, value):
         self.scene_desc[key] = value
@@ -87,10 +94,12 @@ class Blackboard(object):
 
     def set_dimension_values(self, data):
         for marker in data.markers:
-            if marker.ns == self.context_values["source"]:
+            if marker.ns == self.scene_desc["source"]:
                 self.scene_desc["source_dim"] = (marker.scale.x, marker.scale.y, marker.scale.z)
-            elif marker.ns == self.context_values["dest"]:
+            elif marker.ns == self.scene_desc["dest"]:
                 self.scene_desc["dest_dim"] = (marker.scale.x, marker.scale.y, marker.scale.z)
+
+        print("dimensions  ", self.scene_desc["source_dim"], self.scene_desc["dest_dim"])
 
 
 class BlackboardController:
@@ -274,6 +283,8 @@ class Reasoner:
 class SimulationSource:
 
     def __init__(self, bb):
+        self.util_helper = Utils()
+        self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
         self.dest_limits: tuple = ()
         self.src_limits: tuple = ()
         self.tf_transform = tf.TransformListener()
@@ -310,6 +321,7 @@ class SimulationSource:
         self.normal_vector = np.array([0, 0, 1])
         self.opening_within = False
         self.direction_vector = (0, 0)  # to make the opening_within true
+        self.debug = False
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -458,8 +470,14 @@ class SimulationSource:
             #       f' src_vector:{src_vector}')
 
             # compute opening within or not
-            if is_source_opening_within(self.bb.context_values["source_pose"].pose, self.bb.scene_desc["source_dim"],
-                                        self.bb.context_values["dest_pose"].pose, self.bb.scene_desc["dest_dim"]):
+            src_Pose_dest = self.tf_transform.lookupTransform(source_frame=self.bb.scene_desc["source"],
+                                                              target_frame=self.bb.scene_desc["dest"],
+                                                              time=rospy.Time(0))
+            print(f'src_Pose_dest: {src_Pose_dest}, src_dim: {self.bb.scene_desc["source_dim"]}, '
+                  f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {self.bb.scene_desc["dest_dim"]}')
+            if self.util_helper.is_source_opening_within(src_Pose_dest, self.bb.scene_desc["source_dim"],
+                                                         self.bb.context_values["dest_pose"].pose,
+                                                         self.bb.scene_desc["dest_dim"]):
                 self.opening_within = True
                 # print("opening within")
             else:
@@ -470,15 +488,22 @@ class SimulationSource:
                                                            self.bb.context_values["source_pose"].pose.orientation.z,
                                                            self.bb.context_values["source_pose"].pose.orientation.w]))
 
-                src_opening_point = rotate_point(np.array(
-                    [self.src_bounding_box_pose.position.x,
-                     self.src_bounding_box_pose.position.y,
-                     self.src_bounding_box_pose.position.z]), rotation_mat),
+                src_opening_point = self.util_helper.rotate_point(np.array(
+                    [self.bb.context_values["source_pose"].pose.position.x,
+                     self.bb.context_values["source_pose"].pose.position.y,
+                     self.bb.context_values["source_pose"].pose.position.z + self.bb.scene_desc["source_dim"][2] / 2]),
+                    rotation_mat)
 
                 v_src_dest = np.array(
                     [self.bb.context_values["dest_pose"].pose.position.x,
                      self.bb.context_values["dest_pose"].pose.position.y]) - src_opening_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
+
+        if self.debug:
+            self.publish_test_markers()
+
+    def publish_test_markers(self):
+        self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:

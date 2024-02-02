@@ -5,201 +5,240 @@ from tf.transformations import quaternion_matrix
 from visualization_msgs.msg import Marker, MarkerArray
 
 
-def rotate_point(point_to_rotate: np.array, rot_matrix: np.array) -> np.array:
-    return np.matmul(rot_matrix[:3, :3], point_to_rotate)
+class Utils:
 
+    def __init__(self):
+        self.test_marker_array = MarkerArray()
 
-def closest_point_on_rectangle_to_point(container_pose: Pose, container_dim: tuple, pot_P_obj: Point) -> (
-        np.array, float):
-    # rospy.init_node('test_utils')
-    A, B, C = _get_points(container_pose, container_dim)
-    P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
-    ab = B - A
-    ac = C - A
-    ap = P - A
+    def get_test_visualization_marker_array(self):
+        return self.test_marker_array
 
-    ab_len = np.linalg.norm(ab)
-    ab_unit = ab / ab_len
-    ac_len = np.linalg.norm(ac)
-    ac_unit = ac / ac_len
+    def rotate_point(self, point_to_rotate: np.array, rot_matrix: np.array) -> np.array:
+        return np.matmul(rot_matrix[:3, :3], point_to_rotate)
 
-    transformed_pt = [np.dot(ac_unit, ap / ac_len), np.dot(ab_unit, ap / ab_len)]
-    projected_pt = np.clip(transformed_pt, 0, 1)
+    def closest_point_on_rectangle_to_point(self, container_pose: Pose, container_dim: tuple, pot_P_obj: Point) -> (
+            np.array, float):
+        # rospy.init_node('test_utils')
+        A, B, C = self._get_points(container_pose, container_dim)
+        P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
+        ab = B - A
+        ac = C - A
+        ap = P - A
 
-    closest_pt = A + projected_pt[0] * ac + projected_pt[1] * ab
-    # print(closest_pt, np.linalg.norm(P - closest_pt))
-    # pub = rospy.Publisher('/test_marker_array', MarkerArray, queue_size=1, latch=True)
-    # m = MarkerArray()
-    # m.markers.append(
-    #     _create_vis_marker(parent_frame='pot', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=A,
-    #                        size=(0.01, 0.01, 0.01)))
-    # m.markers.append(
-    #     _create_vis_marker(parent_frame='pot', ns='B', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=B,
-    #                        size=(0.01, 0.01, 0.01)))
-    # m.markers.append(
-    #     _create_vis_marker(parent_frame='pot', ns='C', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=C,
-    #                        size=(0.01, 0.01, 0.01)))
-    # m.markers.append(_create_vis_marker(parent_frame='pot', ns='P', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
-    #                                     position=closest_pt, size=(0.01, 0.01, 0.01)))
-    # m.markers.append(_create_vis_marker(parent_frame='map', ns='Pot', obj_type=1, action=0, color=(0, 1, 1), lifetime=0,
-    #                                     position=(container_pose.position.x, container_pose.position.y,
-    #                                               container_pose.position.z),
-    #                                     orientation=container_pose.orientation,
-    #                                     size=container_dim))
-    # pub.publish(m)
-    # rospy.spin()
+        ab_len = np.linalg.norm(ab)
+        ab_unit = ab / ab_len
+        ac_len = np.linalg.norm(ac)
+        ac_unit = ac / ac_len
 
-    return closest_pt, np.linalg.norm(P - closest_pt)  # closest pt is w.r.t local frame and not global frame
+        transformed_pt = [np.dot(ac_unit, ap / ac_len), np.dot(ab_unit, ap / ab_len)]
+        projected_pt = np.clip(transformed_pt, 0, 1)
 
+        closest_pt = A + projected_pt[0] * ac + projected_pt[1] * ab
+        # print(closest_pt, np.linalg.norm(P - closest_pt))
+        # pub = rospy.Publisher('/test_marker_array', MarkerArray, queue_size=1, latch=True)
+        # m = MarkerArray()
+        # m.markers.append(
+        #     _create_vis_marker(parent_frame='pot', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=A,
+        #                        size=(0.01, 0.01, 0.01)))
+        # m.markers.append(
+        #     _create_vis_marker(parent_frame='pot', ns='B', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=B,
+        #                        size=(0.01, 0.01, 0.01)))
+        # m.markers.append(
+        #     _create_vis_marker(parent_frame='pot', ns='C', obj_type=2, action=0, color=(1, 1, 0), lifetime=0, position=C,
+        #                        size=(0.01, 0.01, 0.01)))
+        # m.markers.append(_create_vis_marker(parent_frame='pot', ns='P', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+        #                                     position=closest_pt, size=(0.01, 0.01, 0.01)))
+        # m.markers.append(_create_vis_marker(parent_frame='map', ns='Pot', obj_type=1, action=0, color=(0, 1, 1), lifetime=0,
+        #                                     position=(container_pose.position.x, container_pose.position.y,
+        #                                               container_pose.position.z),
+        #                                     orientation=container_pose.orientation,
+        #                                     size=container_dim))
+        # pub.publish(m)
+        # rospy.spin()
 
-def closest_point_on_line_to_point(A, B, P) -> float:
-    ab = B - A
-    ap = P - A
+        return closest_pt, np.linalg.norm(P - closest_pt)  # closest pt is w.r.t local frame and not global frame
 
-    ab_len = np.linalg.norm(ab)
-    ab_unit = ab / ab_len
+    def closest_point_on_line_to_point(self, A, B, P) -> float:
+        ab = B - A
+        ap = P - A
 
-    transformed_pt = [np.dot(ab_unit, ap / ab_len)]
-    projected_pt = np.clip(transformed_pt, 0, 1)
-    closest_pt = A + projected_pt * ab
-    # print(closest_pt, np.linalg.norm(P - closest_pt))
+        ab_len = np.linalg.norm(ab)
+        ab_unit = ab / ab_len
 
-    return np.linalg.norm(P - closest_pt)
+        transformed_pt = [np.dot(ab_unit, ap / ab_len)]
+        projected_pt = np.clip(transformed_pt, 0, 1)
+        closest_pt = A + projected_pt * ab
+        # print(closest_pt, np.linalg.norm(P - closest_pt))
 
+        return np.linalg.norm(P - closest_pt)
 
-def get_distance_to_retained_object(obj_pose: Pose, obj_dim: tuple, pot_P_obj: Point, lies_along: str,
-                                    direction: str):
-    A, B = _get_points_on_line(lies_along, direction, obj_pose, obj_dim)
-    P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
-    return closest_point_on_line_to_point(A, B, P)
+    def get_distance_to_retained_object(self, obj_pose: Pose, obj_dim: tuple, pot_P_obj: Point, lies_along: str,
+                                        direction: str):
+        A, B = self._get_points_on_line(lies_along, direction, obj_pose, obj_dim)
+        P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
+        return self.closest_point_on_line_to_point(A, B, P)
 
+    def is_source_opening_within(self, dest_Pose_src: tuple, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) -> bool:
 
-def is_source_opening_within(src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) -> bool:
-    # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
-    src_opening_point = np.array(
-        [src_pose.position.x, src_pose.position.y, src_pose.position.z + src_dim[2] / 2])
-    src_A = np.array([src_opening_point[0], src_opening_point[1] + src_dim[1] / 2, src_opening_point[2]])
-    src_B = np.array([src_opening_point[0], src_opening_point[1] - src_dim[1] / 2, src_opening_point[2]])
-    src_C = np.array([src_opening_point[0] + src_dim[0] / 2, src_opening_point[1], src_opening_point[2]])
-    src_D = np.array([src_opening_point[0] - src_dim[0] / 2, src_opening_point[1], src_opening_point[2]])
+        #         src_Pose_dest: ([0.0003565384047523601, 0.4002190860441465, 0.0005981301133040628],
+        #         [-6.7395447299989826e-06, -8.062735892550645e-06, 0.00041854739515594856, 0.9999999123538206]),
+        #         src_dim: (0.0646, 0.0646, 0.18), dest_pose: position:
+        #   x: 1.9998643009882282
+        #   y: -0.6001155389875352
+        #   z: 0.30538641729671684
+        # orientation:
+        #   x: -3.328273309018623e-06
+        #   y: 1.298903533812593e-05
+        #   z: -2.3896462101018977e-06
+        #   w: 0.9999999999072484, dest_dim: (0.0646, 0.0646, 0.18)
 
-    rotation_mat = quaternion_matrix(np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
-                                               src_pose.orientation.w]))
-    src_opening_point = rotate_point(src_opening_point, rotation_mat)
-    src_A = rotate_point(src_A, rotation_mat)
-    src_B = rotate_point(src_B, rotation_mat)
-    src_C = rotate_point(src_C, rotation_mat)
-    src_D = rotate_point(src_D, rotation_mat)
+        src_pose = Pose()
+        src_pose.position.x = dest_Pose_src[0][0]
+        src_pose.position.y = dest_Pose_src[0][1]
+        src_pose.position.z = dest_Pose_src[0][2]
+        src_pose.orientation.x = dest_Pose_src[1][0]
+        src_pose.orientation.y = dest_Pose_src[1][1]
+        src_pose.orientation.z = dest_Pose_src[1][2]
+        src_pose.orientation.w = dest_Pose_src[1][3]
 
-    dest_opening_point = np.array(
-        [dest_pose.position.x,
-         dest_pose.position.y,
-         dest_pose.position.z + dest_dim[2] / 2])
-    # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
-    # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
-    # To ensure the source opening lies within the dest
-    l, d, h = (dest_dim[0] * 0.75) / 2, (dest_dim[1] * 0.75) / 2, dest_opening_point[2]
-    a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d], h)
-    b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d], h)
-    c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d], h)
+        # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
+        src_opening_point = np.array(
+            [src_pose.position.x, src_pose.position.y, src_pose.position.z + src_dim[2] / 2])
+        src_A = np.array([src_opening_point[0], src_opening_point[1] + src_dim[1] / 2, src_opening_point[2]])
+        src_B = np.array([src_opening_point[0], src_opening_point[1] - src_dim[1] / 2, src_opening_point[2]])
+        src_C = np.array([src_opening_point[0] + src_dim[0] / 2, src_opening_point[1], src_opening_point[2]])
+        src_D = np.array([src_opening_point[0] - src_dim[0] / 2, src_opening_point[1], src_opening_point[2]])
 
-    ab = b - a
-    ac = c - a
+        rotation_mat = quaternion_matrix(
+            np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
+                      src_pose.orientation.w]))
+        src_opening_point = self.rotate_point(src_opening_point, rotation_mat)
+        src_A = self.rotate_point(src_A, rotation_mat)
+        src_B = self.rotate_point(src_B, rotation_mat)
+        src_C = self.rotate_point(src_C, rotation_mat)
+        src_D = self.rotate_point(src_D, rotation_mat)
 
-    # print("points to compute opening ", a, b, c, src_opening_point)
-    # print("vectors ", ab, ap, ac)
-    # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
+        dest_opening_point = np.array(
+            [dest_pose.position.x,
+             dest_pose.position.y,
+             dest_pose.position.z + dest_dim[2] / 2])
+        # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
+        # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
+        # To ensure the source opening lies within the dest
+        l, d, h = (dest_dim[0] * 0.75) / 2, (dest_dim[1] * 0.75) / 2, dest_opening_point[2]
+        a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d, h])
+        b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d, h])
+        c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d, h])
 
-    return point_within_bounds(ab, ac, src_opening_point - a) or point_within_bounds(ab, ac, src_A - a) or \
-           point_within_bounds(ab, ac, src_B - a) or point_within_bounds(ab, ac, src_C - a) or \
-           point_within_bounds(ab, ac, src_D - a)
+        ab = b - a
+        ac = c - a
 
+        # print("points to compute opening ", a, b, c, src_opening_point)
+        # print("vectors ", ab, ap, ac)
+        # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
 
-def _get_points_on_line(lies_along: str, direction: str, obj_pose: Pose, obj_dim: tuple):
-    x_val = obj_dim[0] / 2
-    y_val = obj_dim[1] / 2
-    z_val = obj_dim[2] / 2
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='free_cup2', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=src_A, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='free_cup2', ns='B', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=src_B, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='free_cup2', ns='C', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=src_C, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='free_cup2', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=src_D, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='free_cup2', ns='src_opening_point', obj_type=2, action=0,
+                                    color=(1, 1, 0), lifetime=0, position=src_opening_point, size=(0.01, 0.01, 0.01)))
 
-    A = []
-    B = []
-    if lies_along == "y":
-        if direction == "+x":
-            A = np.array([x_val, -y_val, z_val])
-            B = np.array([x_val, y_val, z_val])
-        elif direction == "-x":
-            A = np.array([-x_val, -y_val, z_val])
-            B = np.array([-x_val, y_val, z_val])
+        return self.point_within_bounds(ab, ac, src_opening_point - a) or self.point_within_bounds(ab, ac, src_A - a) \
+               or self.point_within_bounds(ab, ac, src_B - a) or self.point_within_bounds(ab, ac, src_C - a) or \
+               self.point_within_bounds(ab, ac, src_D - a)
 
-    rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y, obj_pose.orientation.z,
-                                             obj_pose.orientation.w]))
-    A = rotate_point(A, rot_matrix)
-    B = rotate_point(B, rot_matrix)
+    def _get_points_on_line(self, lies_along: str, direction: str, obj_pose: Pose, obj_dim: tuple):
+        x_val = obj_dim[0] / 2
+        y_val = obj_dim[1] / 2
+        z_val = obj_dim[2] / 2
 
-    return A, B
+        A = []
+        B = []
+        if lies_along == "y":
+            if direction == "+x":
+                A = np.array([x_val, -y_val, z_val])
+                B = np.array([x_val, y_val, z_val])
+            elif direction == "-x":
+                A = np.array([-x_val, -y_val, z_val])
+                B = np.array([-x_val, y_val, z_val])
 
+        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y, obj_pose.orientation.z,
+                                                 obj_pose.orientation.w]))
+        A = self.rotate_point(A, rot_matrix)
+        B = self.rotate_point(B, rot_matrix)
 
-def _get_points(obj_pose: Pose, obj_dim):
-    # top lies in XY plane. points in local frame
-    # A is bottom left
-    A = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
-    B = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
-    C = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+        return A, B
 
-    rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y,
-                                             obj_pose.orientation.z, obj_pose.orientation.w]))
-    A = rotate_point(A, rot_matrix)
-    B = rotate_point(B, rot_matrix)
-    C = rotate_point(C, rot_matrix)
+    def _get_points(self, obj_pose: Pose, obj_dim):
+        # top lies in XY plane. points in local frame
+        # A is bottom left
+        A = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+        B = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
+        C = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
 
-    return A, B, C
+        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y,
+                                                 obj_pose.orientation.z, obj_pose.orientation.w]))
+        A = self.rotate_point(A, rot_matrix)
+        B = self.rotate_point(B, rot_matrix)
+        C = self.rotate_point(C, rot_matrix)
 
+        return A, B, C
 
-def point_within_bounds(ab, ac, ap) -> bool:
-    # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
-    return 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac))
+    def point_within_bounds(self, ab, ac, ap) -> bool:
+        # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
+        return 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac))
 
+    def _create_vis_marker(self, parent_frame, ns, obj_type, action, color, lifetime, position, size,
+                           orientation=Quaternion(0, 0, 0, 1)) -> Marker:
+        marker = Marker()
+        marker.header.frame_id = parent_frame
+        # marker.header.stamp = rospy.Time.now()
+        marker.ns = ns
+        marker.id = 1
+        # marker.lifetime = lifetime
+        marker.type = obj_type
+        marker.action = action
+        marker.pose.position.x = position[0]
+        marker.pose.position.y = position[1]
+        marker.pose.position.z = position[2]
+        marker.pose.orientation.x = orientation.x
+        marker.pose.orientation.y = orientation.y
+        marker.pose.orientation.z = orientation.z
+        marker.pose.orientation.w = orientation.w
+        marker.scale.x = size[0]
+        marker.scale.y = size[1]
+        marker.scale.z = size[2]
+        marker.color.a = 0.5
+        marker.color.r = color[0]
+        marker.color.g = color[1]
+        marker.color.b = color[2]
+        return marker
 
-def _create_vis_marker(parent_frame, ns, obj_type, action, color, lifetime, position, size,
-                       orientation=Quaternion(0, 0, 0, 1)) -> Marker:
-    marker = Marker()
-    marker.header.frame_id = parent_frame
-    # marker.header.stamp = rospy.Time.now()
-    marker.ns = ns
-    marker.id = 1
-    # marker.lifetime = lifetime
-    marker.type = obj_type
-    marker.action = action
-    marker.pose.position.x = position[0]
-    marker.pose.position.y = position[1]
-    marker.pose.position.z = position[2]
-    marker.pose.orientation.x = orientation.x
-    marker.pose.orientation.y = orientation.y
-    marker.pose.orientation.z = orientation.z
-    marker.pose.orientation.w = orientation.w
-    marker.scale.x = size[0]
-    marker.scale.y = size[1]
-    marker.scale.z = size[2]
-    marker.color.a = 0.5
-    marker.color.r = color[0]
-    marker.color.g = color[1]
-    marker.color.b = color[2]
-    return marker
-
-# if __name__ == '__main__':
-# 	container_pose = Pose()
-# 	container_pose.position.x = 2
-# 	container_pose.position.y = -0.1998
-# 	container_pose.position.z = 0.670
-# 	# container_pose.orientation.w = 1
-# 	container_pose.orientation.x = 0
-# 	container_pose.orientation.y = 0.38268
-# 	container_pose.orientation.z = 0
-# 	container_pose.orientation.w = 0.92387
-# 	container_dim = (0.2089, 0.2089, 0.06)
-# 	pose_pot_obj = Point()
-# 	pose_pot_obj.x = 0.043
-# 	pose_pot_obj.y = -0.052
-# 	pose_pot_obj.z = 0.001
-#
-# 	# closest_point_on_rectangle_to_point(container_pose, container_dim, pose_pot_obj)
-# 	get_distance_to_retained_object(container_pose, container_dim, pose_pot_obj)
+    # if __name__ == '__main__':
+    # 	container_pose = Pose()
+    # 	container_pose.position.x = 2
+    # 	container_pose.position.y = -0.1998
+    # 	container_pose.position.z = 0.670
+    # 	# container_pose.orientation.w = 1
+    # 	container_pose.orientation.x = 0
+    # 	container_pose.orientation.y = 0.38268
+    # 	container_pose.orientation.z = 0
+    # 	container_pose.orientation.w = 0.92387
+    # 	container_dim = (0.2089, 0.2089, 0.06)
+    # 	pose_pot_obj = Point()
+    # 	pose_pot_obj.x = 0.043
+    # 	pose_pot_obj.y = -0.052
+    # 	pose_pot_obj.z = 0.001
+    #
+    # 	# closest_point_on_rectangle_to_point(container_pose, container_dim, pose_pot_obj)
+    # 	get_distance_to_retained_object(container_pose, container_dim, pose_pot_obj)
