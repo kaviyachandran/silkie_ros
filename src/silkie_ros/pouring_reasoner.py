@@ -470,12 +470,11 @@ class SimulationSource:
             #       f' src_vector:{src_vector}')
 
             # compute opening within or not
-            src_Pose_dest = self.tf_transform.lookupTransform(source_frame=self.bb.scene_desc["source"],
-                                                              target_frame=self.bb.scene_desc["dest"],
-                                                              time=rospy.Time(0))
-            print(f'src_Pose_dest: {src_Pose_dest}, src_dim: {self.bb.scene_desc["source_dim"]}, '
-                  f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {self.bb.scene_desc["dest_dim"]}')
-            if self.util_helper.is_source_opening_within(src_Pose_dest, self.bb.scene_desc["source_dim"],
+
+            # print(f'src_Pose: {self.bb.context_values["source_pose"].pose}, src_dim: {self.bb.scene_desc[
+            # "source_dim"]}, ' f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {
+            # self.bb.scene_desc["dest_dim"]}')
+            if self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose, self.bb.scene_desc["source_dim"],
                                                          self.bb.context_values["dest_pose"].pose,
                                                          self.bb.scene_desc["dest_dim"]):
                 self.opening_within = True
@@ -600,6 +599,8 @@ class SimulationSource:
                 self.bb.context_values[query] = self.particle_increase_in_dest
             elif query == "almostGoalReached":
                 self.bb.context_values[query] = self.almost_goal_reached
+            elif query == "poursTo":
+                self.bb.context_values[query] = self.bb.context_values[query]
 
 
 class Perception:

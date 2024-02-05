@@ -81,21 +81,13 @@ class Utils(object):
         P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
         return self.closest_point_on_line_to_point(A, B, P)
 
-    def is_source_opening_within(self, map_Pose_src: tuple, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) -> bool:
-        print("src pose ", map_Pose_src)
+    def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) -> bool:
+        # print("src pose ", map_Pose_src)
         opening_within = False
-        src_pose = Pose()
-        src_pose.position.x = map_Pose_src[0][0]
-        src_pose.position.y = map_Pose_src[0][1]
-        src_pose.position.z = map_Pose_src[0][2]
-        src_pose.orientation.x = map_Pose_src[1][0]
-        src_pose.orientation.y = map_Pose_src[1][1]
-        src_pose.orientation.z = map_Pose_src[1][2]
-        src_pose.orientation.w = map_Pose_src[1][3]
 
-        src_x = src_dim[0]/2
-        src_y = src_dim[1]/2
-        src_z = src_dim[2]/2
+        src_x = src_dim[0] / 2
+        src_y = src_dim[1] / 2
+        src_z = src_dim[2] / 2
         # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
         src_opening_point = np.array([0, 0, src_z])
         src_A = np.array([0, src_y, src_z])
@@ -103,20 +95,16 @@ class Utils(object):
         src_C = np.array([src_x, 0, src_z])
         src_D = np.array([-src_x, 0, src_z])
 
-        print("src points ", src_A, src_B, src_C, src_D, src_opening_point)
+        # print("src points ", src_A, src_B, src_C, src_D, src_opening_point)
 
         rotation_mat = quaternion_matrix(
             np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
                       src_pose.orientation.w]))
-        # src_opening_point = self.rotate_point(src_opening_point, rotation_mat)
-        # src_A = self.rotate_point(src_A, rotation_mat)
-        # src_B = self.rotate_point(src_B, rotation_mat)
-        # src_C = self.rotate_point(src_C, rotation_mat)
-        # src_D = self.rotate_point(src_D, rotation_mat)
 
-        # print("rotated pt ", src_A, src_B, src_C, src_D, src_opening_point)
 
-        tf_map_src = np.hstack((rotation_mat[:3, :3], np.array(map_Pose_src[0]).reshape(3, 1)))
+        tf_map_src = np.hstack((rotation_mat[:3, :3],
+                                np.array([src_pose.position.x, src_pose.position.y,
+                                          src_pose.position.z]).reshape(3, 1)))
         tf_map_src = np.vstack((tf_map_src, np.array([0, 0, 0, 1]).reshape(1, 4)))
 
         map_P_src_A = np.matmul(tf_map_src, np.hstack((src_A, [1])))[0:3]
@@ -124,6 +112,8 @@ class Utils(object):
         map_P_src_C = np.matmul(tf_map_src, np.hstack((src_C, [1])))[0:3]
         map_P_src_D = np.matmul(tf_map_src, np.hstack((src_D, [1])))[0:3]
         map_P_src_opening_point = np.matmul(tf_map_src, np.hstack((src_opening_point, [1])))[0:3]
+
+        # print("rotated pt ", map_P_src_A, map_P_src_B, map_P_src_C, map_P_src_D, map_P_src_opening_point)
 
         dest_opening_point = np.array(
             [dest_pose.position.x,
@@ -140,18 +130,19 @@ class Utils(object):
         ab = b - a
         ac = c - a
 
-        print("dest points: ", a, b, c)
-        # print("points to compute opening ", a, b, c, src_opening_point)
+        # print("dest points: ", a, b, c)
         # print("vectors ", ab, ap, ac)
         # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
         self.test_marker_array = MarkerArray()
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='free_cup2', obj_type=1, action=0, color=(0, 0, 1),
-                                    lifetime=0, position=(dest_pose.position.x, dest_pose.position.y, dest_pose.position.z),
+                                    lifetime=0,
+                                    position=(dest_pose.position.x, dest_pose.position.y, dest_pose.position.z),
                                     orientation=dest_pose.orientation, size=dest_dim))
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='free_cup', obj_type=1, action=0, color=(0, 0, 1),
-                                    lifetime=0, position=(src_pose.position.x, src_pose.position.y, src_pose.position.z),
+                                    lifetime=0,
+                                    position=(src_pose.position.x, src_pose.position.y, src_pose.position.z),
                                     orientation=src_pose.orientation, size=src_dim))
 
         self.test_marker_array.markers.append(
@@ -180,7 +171,8 @@ class Utils(object):
                                     position=map_P_src_D, size=(0.01, 0.01, 0.01)))
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='src_opening_point', obj_type=2, action=0,
-                                    color=(1, 1, 0), lifetime=0, position=map_P_src_opening_point, size=(0.01, 0.01, 0.01)))
+                                    color=(1, 1, 0), lifetime=0, position=map_P_src_opening_point,
+                                    size=(0.01, 0.01, 0.01)))
 
         test_check = [self.point_within_bounds(ab, ac, map_P_src_opening_point - a),
                       self.point_within_bounds(ab, ac, map_P_src_A - a),
@@ -188,8 +180,8 @@ class Utils(object):
                       self.point_within_bounds(ab, ac, map_P_src_C - a),
                       self.point_within_bounds(ab, ac, map_P_src_D - a)]
 
-        print("checkss ", test_check)
-        if test_check.count(True) >= 2:
+        #print("checkss ", test_check)
+        if test_check.count(True) >= 1:
             opening_within = True
 
         return opening_within
@@ -233,8 +225,8 @@ class Utils(object):
 
     def point_within_bounds(self, ab, ac, ap) -> bool:
         # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
-        print(abs(np.dot(ap, ab)), abs(np.dot(ab, ab)), abs(np.dot(ap, ac)), abs(np.dot(ac, ac)))
-        return 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac))
+        # print((np.dot(ap, ab)), (np.dot(ab, ab)), (np.dot(ap, ac)), (np.dot(ac, ac)))
+        return 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac)
 
     def _create_vis_marker(self, parent_frame, ns, obj_type, action, color, lifetime, position, size,
                            orientation=Quaternion(0, 0, 0, 1)) -> Marker:
@@ -263,14 +255,15 @@ class Utils(object):
         return marker
 
     def get_transform(self, reference_frame, target_frame):
-        self.tf_listener.waitForTransform(reference_frame, target_frame, rospy.Time(), rospy.Duration(10.0))
+        self.tf_listener.waitForTransform(reference_frame, target_frame, rospy.Time(), rospy.Duration(5))
         (pos, quat) = self.tf_listener.lookupTransform(reference_frame, target_frame, rospy.Time())
-        return (pos, quat)
+        return pos, quat
+
 
 # if __name__ == '__main__':
-    # rospy.init_node('test_node')
-    # u = Utils()
-    # pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
+#     rospy.init_node('test_node')
+#     u = Utils()
+#     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
     # 	container_pose = Pose()
     # 	container_pose.position.x = 2
     # 	container_pose.position.y = -0.1998
@@ -288,9 +281,16 @@ class Utils(object):
     #
     # 	# closest_point_on_rectangle_to_point(container_pose, container_dim, pose_pot_obj)
     # 	get_distance_to_retained_object(container_pose, container_dim, pose_pot_obj)
-    # is_source_opening_within(container_pose, container_dim, pose_pot_obj)
-    #src_Pose_dest = ([0.0003565384047523601, 0.4002190860441465, 0.0005981301133040628],[0, 0, 0.7071, 0.7071])
+    # src_Pose_dest = ([0.0003565384047523601, 0.4002190860441465, 0.0005981301133040628], [0, 0, 0.7071, 0.7071])
     # map_Pose_src = u.get_transform("map", "free_cup")
+    # src_pose = Pose()
+    # src_pose.position.x = map_Pose_src[0][0]
+    # src_pose.position.y = map_Pose_src[0][1]
+    # src_pose.position.z = map_Pose_src[0][2]
+    # src_pose.orientation.x = map_Pose_src[1][0]
+    # src_pose.orientation.y = map_Pose_src[1][1]
+    # src_pose.orientation.z = map_Pose_src[1][2]
+    # src_pose.orientation.w = map_Pose_src[1][3]
     # src_dim = (0.0646, 0.0646, 0.18)
     # dest_pose = Pose()
     # dest_pose.position.x = 1.9998643009882282
@@ -300,8 +300,8 @@ class Utils(object):
     # dest_pose.orientation.y = 1.298903533812593e-05
     # dest_pose.orientation.z = -2.3896462101018977e-06
     # dest_pose.orientation.w = 0.9999999999072484
-    # dest_dim = (0.0646, 0.0646, 0.18)#
-    # within = u.is_source_opening_within(map_Pose_src, src_dim, dest_pose, dest_dim)
+    # dest_dim = (0.0646, 0.0646, 0.18)
+    # within = u.is_source_opening_within(src_pose, src_dim, dest_pose, dest_dim)
     # vis_array = u.get_test_visualization_marker_array()
     # # print(vis_array)
     # pub.publish(vis_array)
