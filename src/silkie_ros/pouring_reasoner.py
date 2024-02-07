@@ -474,28 +474,19 @@ class SimulationSource:
             # print(f'src_Pose: {self.bb.context_values["source_pose"].pose}, src_dim: {self.bb.scene_desc[
             # "source_dim"]}, ' f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {
             # self.bb.scene_desc["dest_dim"]}')
-            if self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose, self.bb.scene_desc["source_dim"],
-                                                         self.bb.context_values["dest_pose"].pose,
-                                                         self.bb.scene_desc["dest_dim"]):
+            within, closest_point = self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose,
+                                                                              self.bb.scene_desc["source_dim"],
+                                                                              self.bb.context_values["dest_pose"].pose,
+                                                                              self.bb.scene_desc["dest_dim"])
+            if within:
                 self.opening_within = True
                 # print("opening within")
             else:
                 # dest_src
                 # print("dir vector ", dest_opening_point, src_opening_point)
-                rotation_mat = quaternion_matrix(np.array([self.bb.context_values["source_pose"].pose.orientation.x,
-                                                           self.bb.context_values["source_pose"].pose.orientation.y,
-                                                           self.bb.context_values["source_pose"].pose.orientation.z,
-                                                           self.bb.context_values["source_pose"].pose.orientation.w]))
-
-                src_opening_point = self.util_helper.rotate_point(np.array(
-                    [self.bb.context_values["source_pose"].pose.position.x,
-                     self.bb.context_values["source_pose"].pose.position.y,
-                     self.bb.context_values["source_pose"].pose.position.z + self.bb.scene_desc["source_dim"][2] / 2]),
-                    rotation_mat)
-
                 v_src_dest = np.array(
                     [self.bb.context_values["dest_pose"].pose.position.x,
-                     self.bb.context_values["dest_pose"].pose.position.y]) - src_opening_point[0:2]
+                     self.bb.context_values["dest_pose"].pose.position.y]) - closest_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
         if self.debug:

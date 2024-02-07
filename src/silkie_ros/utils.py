@@ -81,15 +81,16 @@ class Utils(object):
         P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
         return self.closest_point_on_line_to_point(A, B, P)
 
-    def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) -> bool:
+    def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) \
+            -> (bool, tuple):
         # print("src pose ", map_Pose_src)
         opening_within = False
 
-        src_x = src_dim[0] / 2
-        src_y = src_dim[1] / 2
+        src_x = src_dim[0] / 2 * .75
+        src_y = src_dim[1] / 2 * .75
         src_z = src_dim[2] / 2
         # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
-        src_opening_point = np.array([0, 0, src_z])
+        # src_opening_point = np.array([0, 0, src_z])
         src_A = np.array([0, src_y, src_z])
         src_B = np.array([0, -src_y, src_z])
         src_C = np.array([src_x, 0, src_z])
@@ -111,7 +112,7 @@ class Utils(object):
         map_P_src_B = np.matmul(tf_map_src, np.hstack((src_B, [1])))[0:3]
         map_P_src_C = np.matmul(tf_map_src, np.hstack((src_C, [1])))[0:3]
         map_P_src_D = np.matmul(tf_map_src, np.hstack((src_D, [1])))[0:3]
-        map_P_src_opening_point = np.matmul(tf_map_src, np.hstack((src_opening_point, [1])))[0:3]
+        # map_P_src_opening_point = np.matmul(tf_map_src, np.hstack((src_opening_point, [1])))[0:3]
 
         # print("rotated pt ", map_P_src_A, map_P_src_B, map_P_src_C, map_P_src_D, map_P_src_opening_point)
 
@@ -122,7 +123,7 @@ class Utils(object):
         # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
         # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
         # To ensure the source opening lies within the dest
-        l, d, h = (dest_dim[0] * 0.75) / 2, (dest_dim[1] * 0.75) / 2, dest_opening_point[2]
+        l, d, h = (dest_dim[0] * 0.65) / 2, (dest_dim[1] * 0.65) / 2, dest_opening_point[2]
         a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d, h])
         b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d, h])
         c = np.array([dest_opening_point[0] + l, dest_opening_point[1] + d, h])
@@ -169,22 +170,32 @@ class Utils(object):
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
                                     position=map_P_src_D, size=(0.01, 0.01, 0.01)))
-        self.test_marker_array.markers.append(
-            self._create_vis_marker(parent_frame='map', ns='src_opening_point', obj_type=2, action=0,
-                                    color=(1, 1, 0), lifetime=0, position=map_P_src_opening_point,
-                                    size=(0.01, 0.01, 0.01)))
+        # self.test_marker_array.markers.append(
+        #     self._create_vis_marker(parent_frame='map', ns='src_opening_point', obj_type=2, action=0,
+        #                             color=(1, 1, 0), lifetime=0, position=map_P_src_opening_point,
+        #                             size=(0.01, 0.01, 0.01)))
+        distance_val = []
+        dist_position_array = np.array([dest_pose.position.x, dest_pose.position.y, dest_pose.position.z])
+        src_points = (map_P_src_A, map_P_src_B, map_P_src_C, map_P_src_D)
+        # store the values in a list and then find the corresponding point
+        for point in src_points:
+            distance_val.append(self.distance(point, dist_position_array))
 
-        test_check = [self.point_within_bounds(ab, ac, map_P_src_opening_point - a),
-                      self.point_within_bounds(ab, ac, map_P_src_A - a),
-                      self.point_within_bounds(ab, ac, map_P_src_B - a),
-                      self.point_within_bounds(ab, ac, map_P_src_C - a),
-                      self.point_within_bounds(ab, ac, map_P_src_D - a)]
+        closest_index = np.argsort(distance_val)[0]
+
+        # test_check = [self.point_within_bounds(ab, ac, map_P_src_A - a),
+        #               self.point_within_bounds(ab, ac, map_P_src_B - a),
+        #               self.point_within_bounds(ab, ac, map_P_src_C - a),
+        #               self.point_within_bounds(ab, ac, map_P_src_D - a)]
 
         #print("checkss ", test_check)
-        if test_check.count(True) >= 1:
-            opening_within = True
+        # if test_check.count(True) >= 1:
+        #     opening_within = True
 
-        return opening_within
+        return self.point_within_bounds(ab, ac, src_points[closest_index] - a), src_points[closest_index]
+
+    def distance(self, p1, p2):
+        return np.linalg.norm(np.array(p1) - np.array(p2))
 
     def _get_points_on_line(self, lies_along: str, direction: str, obj_pose: Pose, obj_dim: tuple):
         x_val = obj_dim[0] / 2
