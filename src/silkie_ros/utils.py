@@ -5,6 +5,7 @@ from tf.transformations import quaternion_matrix
 from visualization_msgs.msg import Marker, MarkerArray
 import tf
 
+## Note: Rotate in local frame
 
 class Utils(object):
 
@@ -22,7 +23,7 @@ class Utils(object):
     def closest_point_on_rectangle_to_point(self, container_pose: Pose, container_dim: tuple, pot_P_obj: Point) -> (
             np.array, float):
         # rospy.init_node('test_utils')
-        A, B, C = self._get_points(container_pose, container_dim)
+        A, B, C, _ = self._get_corner_points(container_pose.orientation, container_dim)
         P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
         ab = B - A
         ac = C - A
@@ -102,7 +103,6 @@ class Utils(object):
             np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
                       src_pose.orientation.w]))
 
-
         tf_map_src = np.hstack((rotation_mat[:3, :3],
                                 np.array([src_pose.position.x, src_pose.position.y,
                                           src_pose.position.z]).reshape(3, 1)))
@@ -170,6 +170,7 @@ class Utils(object):
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
                                     position=map_P_src_D, size=(0.01, 0.01, 0.01)))
+
         # self.test_marker_array.markers.append(
         #     self._create_vis_marker(parent_frame='map', ns='src_opening_point', obj_type=2, action=0,
         #                             color=(1, 1, 0), lifetime=0, position=map_P_src_opening_point,
@@ -188,7 +189,7 @@ class Utils(object):
         #               self.point_within_bounds(ab, ac, map_P_src_C - a),
         #               self.point_within_bounds(ab, ac, map_P_src_D - a)]
 
-        #print("checkss ", test_check)
+        # print("checkss ", test_check)
         # if test_check.count(True) >= 1:
         #     opening_within = True
 
@@ -219,20 +220,22 @@ class Utils(object):
 
         return A, B
 
-    def _get_points(self, obj_pose: Pose, obj_dim):
+    def _get_corner_points(self, obj_pose: Quaternion, obj_dim):
         # top lies in XY plane. points in local frame
         # A is bottom left
         A = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
         B = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
         C = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+        D = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
 
-        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y,
-                                                 obj_pose.orientation.z, obj_pose.orientation.w]))
+        rot_matrix = quaternion_matrix(np.array([obj_pose.x, obj_pose.y,
+                                                 obj_pose.z, obj_pose.w]))
         A = self.rotate_point(A, rot_matrix)
         B = self.rotate_point(B, rot_matrix)
         C = self.rotate_point(C, rot_matrix)
+        D = self.rotate_point(D, rot_matrix)
 
-        return A, B, C
+        return A, B, C, D
 
     def point_within_bounds(self, ab, ac, ap) -> bool:
         # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
@@ -270,11 +273,72 @@ class Utils(object):
         (pos, quat) = self.tf_listener.lookupTransform(reference_frame, target_frame, rospy.Time())
         return pos, quat
 
+    def create_obj_test_alignment(self, obj_names, obj_poses: list):
+        for ind, pose in enumerate(obj_poses):
+            self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=obj_names[ind],
+                                                                          obj_type=1, action=0, color=(0, 1, 1),
+                                                                          lifetime=0, position=(pose[0][0],
+                                                                                                pose[0][1],
+                                                                                                pose[0][2]),
+                                                                          orientation=Quaternion(pose[1][0],
+                                                                                                 pose[1][1],
+                                                                                                 pose[1][2],
+                                                                                                 pose[1][3]),
+                                                                          size=(0.1, 0.1, 0.05)))
 
-# if __name__ == '__main__':
-#     rospy.init_node('test_node')
-#     u = Utils()
-#     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
+    def test_alignment_to_get_direction(self, cont_pose: tuple):
+        # test cont pose  ([-0.0009452644735574722, -0.10899632424116135, 0.13849832117557526],
+        dest_pose = np.array([0, 0, 0])
+        print("cont pose ", cont_pose)
+        dim = (0.1, 0.1, 0.05)
+        # l, d, h = dim[0]/2, dim[1] / 2, dim[2]/2
+
+        q = Quaternion(cont_pose[1][0], cont_pose[1][1], cont_pose[1][2], cont_pose[1][3])
+        a, b, c, d = self._get_corner_points(obj_pose=q, obj_dim=(dim[0]*0.8, dim[1]*0.8, dim[2]))
+
+        a = a + cont_pose[0]
+        b = b + cont_pose[0]
+        c = c + cont_pose[0]
+        d = d + cont_pose[0]
+        corner_points = [a, b, c, d]
+        print("points ", a, b, c, d)
+        _, _, heights = zip(*corner_points)
+        sorted_index = np.argsort(heights)
+        lowest_pt = corner_points[sorted_index[0]]
+        no_of_low_pts = heights.count(lowest_pt[2])
+        interesting_indices = sorted_index[:no_of_low_pts]
+        if len(interesting_indices) > 1:
+            dist = 0
+            for ind in interesting_indices:
+                dist_current = self.distance(dest_pose, corner_points[ind])
+                if dist == 0:
+                    dist = dist_current
+                    lowest_pt = corner_points[ind]
+                elif dist_current < dist:
+                    dist = dist_current
+                    lowest_pt = corner_points[ind]
+                elif dist_current > dist or dist_current == dist:
+                    continue
+
+        print("lowest point ", lowest_pt)
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=a, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='B', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=b, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='C', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=c, size=(0.01, 0.01, 0.01)))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+                                    position=d, size=(0.01, 0.01, 0.01)))
+
+
+if __name__ == '__main__':
+    rospy.init_node('test_node')
+    u = Utils()
+    pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
     # 	container_pose = Pose()
     # 	container_pose.position.x = 2
     # 	container_pose.position.y = -0.1998
@@ -313,8 +377,15 @@ class Utils(object):
     # dest_pose.orientation.w = 0.9999999999072484
     # dest_dim = (0.0646, 0.0646, 0.18)
     # within = u.is_source_opening_within(src_pose, src_dim, dest_pose, dest_dim)
-    # vis_array = u.get_test_visualization_marker_array()
-    # # print(vis_array)
-    # pub.publish(vis_array)
-    # rospy.sleep(1.0)
-    # rospy.spin()
+    container_obj = ("free_cup", "free_cup2")
+    poses = []
+    for i in container_obj:
+        poses.append(u.get_transform("map", i))
+
+    u.create_obj_test_alignment(container_obj, poses)
+    u.test_alignment_to_get_direction(poses[1])
+    vis_array = u.get_test_visualization_marker_array()
+    print(vis_array)
+    pub.publish(vis_array)
+    rospy.sleep(1.0)
+    rospy.spin()

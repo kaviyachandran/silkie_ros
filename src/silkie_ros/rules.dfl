@@ -132,6 +132,9 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 25a > 18c
 
+# Liquid flows out through the lowest corner(point) in the container while tilting, we want the water flow through one point so that we can control the flow
+# 26a: SourceRole(?s), hasEdges(?s),
+
 ### Which direction to move to in case of spill
 
 ### In case of overflow, move back to upright
