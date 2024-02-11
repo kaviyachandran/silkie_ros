@@ -287,6 +287,10 @@ class Utils(object):
                                                                           size=(0.1, 0.1, 0.05)))
 
     def test_alignment_to_get_direction(self, cont_pose: tuple):
+        # Note: You might have to stick with the corner points for objects with edges
+        # ToDO : Transform everything to dest frame
+        # ToDo: Once there is spilling at t, find by no of particles outside at t - t-1. When it is positive, you need a
+        # decrease tilt
         # test cont pose  ([-0.0009452644735574722, -0.10899632424116135, 0.13849832117557526],
         dest_pose = np.array([0, 0, 0])
         print("cont pose ", cont_pose)
@@ -321,6 +325,14 @@ class Utils(object):
                     continue
 
         print("lowest point ", lowest_pt)
+        o = np.array([cont_pose[0][0], cont_pose[0][1], cont_pose[0][2]+dim[2]/2])
+        dest = np.array([dest_pose[0], dest_pose[1], dest_pose[2]+dim[2]/2])
+        print("dest pose, src ", dest, o)
+        oa = lowest_pt - o
+        od = dest - o
+        print("oa, od: ", oa, od)
+        cross_pdt = np.cross(oa, od)
+        print("cross pdt ", cross_pdt)
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
                                     position=a, size=(0.01, 0.01, 0.01)))
@@ -385,7 +397,7 @@ if __name__ == '__main__':
     u.create_obj_test_alignment(container_obj, poses)
     u.test_alignment_to_get_direction(poses[1])
     vis_array = u.get_test_visualization_marker_array()
-    print(vis_array)
+    # print(vis_array)
     pub.publish(vis_array)
     rospy.sleep(1.0)
     rospy.spin()
