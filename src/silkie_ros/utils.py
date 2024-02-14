@@ -93,7 +93,7 @@ class Utils(object):
             src_A, src_B, src_C, src_D = self._get_corner_points(src_pose.orientation, (src_dim[0] * 0.75,
                                                                                         src_dim[1] * 0.75,
                                                                                         src_dim[2]))
-        elif corner:
+        elif not corner:
             src_A, src_B, src_C, src_D = self._get_edge_points(src_pose.orientation, (src_dim[0] * 0.75,
                                                                                       src_dim[1] * 0.75,
                                                                                       src_dim[2]))
