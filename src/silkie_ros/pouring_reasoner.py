@@ -55,6 +55,7 @@ class Blackboard(object):
             'streamTooWide': False,
             'tippingDest': False,
             'isSpilled': False,
+            'isSpilling': False,
             'collision': False,
             'dir_overshoot': "",  # todo: compute the orientation w.r.t dest pose to find the direction
             "source_pose": PoseStamped(),
@@ -65,7 +66,7 @@ class Blackboard(object):
             "movesUpIn": False,
             "almostGoalReached": False,
             "srcCornerAligned": False,
-
+            "rotationDirection": "",
             # - (0, -1) ---> Behind. move upwards. in +y direction
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
@@ -256,6 +257,13 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-isSpilled", "",
                                                             silkie.DEFEASIBLE))
 
+        if self.bb.context_values["isSpilling"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "isSpilling", "",
+                                                            silkie.DEFEASIBLE))
+        elif not self.bb.context_values["isSpilling"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-isSpilling", "",
+                                                            silkie.DEFEASIBLE))
+
         if self.bb.context_values["movesUpIn"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "movesUpIn",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
@@ -268,6 +276,11 @@ class Reasoner:
         elif not self.bb.context_values["almostGoalReached"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-almostGoalReached",
                                                             "", silkie.DEFEASIBLE))
+        if self.bb.context_values["rotationDirection"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "RotationDirection",
+                                                            self.bb.context_values["rotationDirection"],
+                                                            silkie.DEFEASIBLE))
+
         if self.bb.scene_desc["sourceHasEdges"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.context_values["srcCornerSpoutRegion"],
                                                             "CornerRegion", "", silkie.DEFEASIBLE))
@@ -321,6 +334,7 @@ class SimulationSource:
         self.spilling: bool = False
         # self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
+        self.spilled_particles: list = []
         self.object_in_dest: int = 0
         # object dependent parameters
 
@@ -348,6 +362,7 @@ class SimulationSource:
         self.debug = False
         self.corner_aligned = False
         self.corner_region = ""
+        self.rot_dir = ""
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -418,6 +433,12 @@ class SimulationSource:
                                                        self.dest_bounding_box_pose.position)
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
+            if len(self.object_flow) > 3:
+                self.object_flow = self.object_flow[-3:]
+
+            if len(self.spilled_particles) > 5:
+                self.spilled_particles = self.spilled_particles[-5:]
+
             for obj in req.object_states:
                 if "ball" in obj.name:
                     inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
@@ -457,7 +478,7 @@ class SimulationSource:
                                        self.dest_bounding_box_pose.position.y))
             # self.bb.context_values["dest_pose"].pose.position.z))
             # print("dist {}".format(self.distance))
-
+            self.spilled_particles.append(count)
             if count > 0.20 * self.bb.scene_desc["total_particles"]:
                 self.spilling = True
                 print("ooopss spilled.... ", count)
@@ -520,7 +541,7 @@ class SimulationSource:
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
             if self.bb.context_values["sourceHasEdges"]:
-                self.corner_aligned = self.util_helper.is_corner_aligned(
+                self.corner_aligned, self.rot_dir = self.util_helper.is_corner_aligned(
                     self.bb.context_values["source_pose"].pose.position,
                     self.bb.scene_desc["source_dim"][2],
                     self.bb.context_values["dest_pose"].pose.position,
@@ -573,6 +594,12 @@ class SimulationSource:
             self.bb.context_values["isSpilled"] = True
         else:
             self.bb.context_values["isSpilled"] = False
+
+        # spilling now
+        if np.count_nonzero(np.diff(self.spilled_particles)) == 5:
+            self.bb.context_values["isSpilling"] = True
+        else:
+            self.bb.context_values["isSpilling"] = False
 
         # tilted
         if self.cup_orientation >= self.source_tilt_angle:
@@ -627,6 +654,12 @@ class SimulationSource:
         else:
             self.bb.context_values["srcCornerSpoutRegion"] = ""
 
+        # rot direction
+        if self.rot_dir:
+            self.bb.context_values["rotationDirection"] = self.rot_dir
+            self.rot_dir = ""
+        else:
+            self.bb.context_values["rotationDirection"] = ""
         if self.opening_within:
             self.bb.context_values["hasOpeningWithin"] = True
         else:

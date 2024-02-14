@@ -206,8 +206,9 @@ class Utils(object):
         return self.point_within_bounds(ab, ac, src_points[closest_index] - a), src_points[closest_index]
 
     def is_corner_aligned(self, src_pose: Point, src_height: float, dest_pose: Point, dest_dim: tuple,
-                          closest_pt: np.array) -> bool:
+                          closest_pt: np.array) -> (bool, str):
         aligned = False
+        direction = {-1: "clockwise", 1: "anticlockwise"}
         Orig = np.array([src_pose.x, src_pose.y, src_pose.z + src_height / 2])
         D = np.array([dest_pose.x, dest_pose.y, dest_pose.z + dest_dim[2] / 2])
 
@@ -217,7 +218,7 @@ class Utils(object):
         tolerance = 0.001
         if np.abs(cross_pdt) < tolerance:
             aligned = True
-        return aligned
+        return aligned, direction[np.sign(cross_pdt)]
 
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))

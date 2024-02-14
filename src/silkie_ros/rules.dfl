@@ -112,6 +112,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
 23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
 23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
+23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
@@ -138,6 +139,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 # This is to rotate the source towards the destination -> rotate along z axis
 26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?p, ?d), -goalReached(?d) => P_rotateTowards(?p, ?d)
+26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?p, ?d), -goalReached(?d), RotationDirection(?dir) => P_rotateAlong(?s, ?dir)
 26c: SourceRole(?s), hasEdges(?s), CornerRegion(?p), hasLowestOpeningCorner(?s, ?p) => pourThrough(?s, ?p)
 
 ### Which direction to move to in case of spill
