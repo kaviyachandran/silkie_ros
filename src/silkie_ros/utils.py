@@ -1,9 +1,10 @@
 import numpy as np
 import rospy
-from geometry_msgs.msg import Pose, Point, Quaternion, TransformStamped
+from geometry_msgs.msg import Pose, Point, Quaternion, Point, TransformStamped
 from tf.transformations import quaternion_matrix
 from visualization_msgs.msg import Marker, MarkerArray
 import tf
+
 
 ## Note: Rotate in local frame
 
@@ -82,36 +83,45 @@ class Utils(object):
         P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
         return self.closest_point_on_line_to_point(A, B, P)
 
-    def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple) \
+    def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple, corner: bool) \
             -> (bool, tuple):
         # print("src pose ", map_Pose_src)
-        opening_within = False
-
-        src_x = src_dim[0] / 2 * .75
-        src_y = src_dim[1] / 2 * .75
-        src_z = src_dim[2] / 2
+        # opening_within = False
+        src_A, src_B, src_C, src_D = np.zeros(3)
         # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
+        if corner:
+            src_A, src_B, src_C, src_D = self._get_corner_points(src_pose.orientation, (src_dim[0] * 0.75,
+                                                                                        src_dim[1] * 0.75,
+                                                                                        src_dim[2]))
+        elif corner:
+            src_A, src_B, src_C, src_D = self._get_edge_points(src_pose.orientation, (src_dim[0] * 0.75,
+                                                                                      src_dim[1] * 0.75,
+                                                                                      src_dim[2]))
+
+        # src_x = src_dim[0] / 2 * .75
+        # src_y = src_dim[1] / 2 * .75
+        # src_z = src_dim[2] / 2
         # src_opening_point = np.array([0, 0, src_z])
-        src_A = np.array([0, src_y, src_z])
-        src_B = np.array([0, -src_y, src_z])
-        src_C = np.array([src_x, 0, src_z])
-        src_D = np.array([-src_x, 0, src_z])
+        # src_A = np.array([0, src_y, src_z])
+        # src_B = np.array([0, -src_y, src_z])
+        # src_C = np.array([src_x, 0, src_z])
+        # src_D = np.array([-src_x, 0, src_z])
 
         # print("src points ", src_A, src_B, src_C, src_D, src_opening_point)
 
-        rotation_mat = quaternion_matrix(
-            np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
-                      src_pose.orientation.w]))
+        # rotation_mat = quaternion_matrix(
+        #     np.array([src_pose.orientation.x, src_pose.orientation.y, src_pose.orientation.z,
+        #               src_pose.orientation.w]))
+        #
+        # tf_map_src = np.hstack((rotation_mat[:3, :3],
+        #                         np.array([src_pose.position.x, src_pose.position.y,
+        #                                   src_pose.position.z]).reshape(3, 1)))
+        # tf_map_src = np.vstack((tf_map_src, np.array([0, 0, 0, 1]).reshape(1, 4)))
 
-        tf_map_src = np.hstack((rotation_mat[:3, :3],
-                                np.array([src_pose.position.x, src_pose.position.y,
-                                          src_pose.position.z]).reshape(3, 1)))
-        tf_map_src = np.vstack((tf_map_src, np.array([0, 0, 0, 1]).reshape(1, 4)))
-
-        map_P_src_A = np.matmul(tf_map_src, np.hstack((src_A, [1])))[0:3]
-        map_P_src_B = np.matmul(tf_map_src, np.hstack((src_B, [1])))[0:3]
-        map_P_src_C = np.matmul(tf_map_src, np.hstack((src_C, [1])))[0:3]
-        map_P_src_D = np.matmul(tf_map_src, np.hstack((src_D, [1])))[0:3]
+        map_P_src_A = src_A + np.array([src_pose.position.x, src_pose.position.y, src_pose.position.z])
+        map_P_src_B = src_B + np.array([src_pose.position.x, src_pose.position.y, src_pose.position.z])
+        map_P_src_C = src_C + np.array([src_pose.position.x, src_pose.position.y, src_pose.position.z])
+        map_P_src_D = src_D + np.array([src_pose.position.x, src_pose.position.y, src_pose.position.z])
         # map_P_src_opening_point = np.matmul(tf_map_src, np.hstack((src_opening_point, [1])))[0:3]
 
         # print("rotated pt ", map_P_src_A, map_P_src_B, map_P_src_C, map_P_src_D, map_P_src_opening_point)
@@ -195,6 +205,20 @@ class Utils(object):
 
         return self.point_within_bounds(ab, ac, src_points[closest_index] - a), src_points[closest_index]
 
+    def is_corner_aligned(self, src_pose: Point, src_height: float, dest_pose: Point, dest_dim: tuple,
+                          closest_pt: np.array) -> bool:
+        aligned = False
+        Orig = np.array([src_pose.x, src_pose.y, src_pose.z + src_height / 2])
+        D = np.array([dest_pose.x, dest_pose.y, dest_pose.z + dest_dim[2] / 2])
+
+        OA = closest_pt - Orig
+        OD = D - Orig
+        cross_pdt = np.cross(OA[:2], OD[:2])
+        tolerance = 0.001
+        if np.abs(cross_pdt) < tolerance:
+            aligned = True
+        return aligned
+
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
 
@@ -225,11 +249,26 @@ class Utils(object):
         # A is bottom left
         A = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
         B = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
-        C = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
-        D = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
+        C = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
+        D = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
 
-        rot_matrix = quaternion_matrix(np.array([obj_pose.x, obj_pose.y,
-                                                 obj_pose.z, obj_pose.w]))
+        rot_matrix = quaternion_matrix(np.array([obj_pose.x, obj_pose.y, obj_pose.z, obj_pose.w]))
+
+        A = self.rotate_point(A, rot_matrix)
+        B = self.rotate_point(B, rot_matrix)
+        C = self.rotate_point(C, rot_matrix)
+        D = self.rotate_point(D, rot_matrix)
+
+        return A, B, C, D
+
+    def _get_edge_points(self, obj_pose: Quaternion, obj_dim):
+        A = np.array([0, obj_dim[1] / 2, obj_dim[2] / 2])
+        B = np.array([0, -obj_dim[1] / 2, obj_dim[2] / 2])
+        C = np.array([obj_dim[0] / 2, 0, obj_dim[2] / 2])
+        D = np.array([-obj_dim[0] / 2, 0, obj_dim[2] / 2])
+
+        rot_matrix = quaternion_matrix(np.array([obj_pose.x, obj_pose.y, obj_pose.z, obj_pose.w]))
+
         A = self.rotate_point(A, rot_matrix)
         B = self.rotate_point(B, rot_matrix)
         C = self.rotate_point(C, rot_matrix)
@@ -298,7 +337,7 @@ class Utils(object):
         # l, d, h = dim[0]/2, dim[1] / 2, dim[2]/2
 
         q = Quaternion(cont_pose[1][0], cont_pose[1][1], cont_pose[1][2], cont_pose[1][3])
-        a, b, c, d = self._get_corner_points(obj_pose=q, obj_dim=(dim[0]*0.8, dim[1]*0.8, dim[2]))
+        a, b, c, d = self._get_corner_points(obj_pose=q, obj_dim=(dim[0] * 0.8, dim[1] * 0.8, dim[2]))
 
         a = a + cont_pose[0]
         b = b + cont_pose[0]
@@ -325,8 +364,8 @@ class Utils(object):
                     continue
 
         print("lowest point ", lowest_pt)
-        o = np.array([cont_pose[0][0], cont_pose[0][1], cont_pose[0][2]+dim[2]/2])
-        dest = np.array([dest_pose[0], dest_pose[1], dest_pose[2]+dim[2]/2])
+        o = np.array([cont_pose[0][0], cont_pose[0][1], cont_pose[0][2] + dim[2] / 2])
+        dest = np.array([dest_pose[0], dest_pose[1], dest_pose[2] + dim[2] / 2])
         print("dest pose, src ", dest, o)
         oa = lowest_pt - o
         od = dest - o
@@ -347,10 +386,10 @@ class Utils(object):
                                     position=d, size=(0.01, 0.01, 0.01)))
 
 
-if __name__ == '__main__':
-    rospy.init_node('test_node')
-    u = Utils()
-    pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
+# if __name__ == '__main__':
+#     rospy.init_node('test_node')
+#     u = Utils()
+#     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
     # 	container_pose = Pose()
     # 	container_pose.position.x = 2
     # 	container_pose.position.y = -0.1998
@@ -389,15 +428,15 @@ if __name__ == '__main__':
     # dest_pose.orientation.w = 0.9999999999072484
     # dest_dim = (0.0646, 0.0646, 0.18)
     # within = u.is_source_opening_within(src_pose, src_dim, dest_pose, dest_dim)
-    container_obj = ("free_cup", "free_cup2")
-    poses = []
-    for i in container_obj:
-        poses.append(u.get_transform("map", i))
-
-    u.create_obj_test_alignment(container_obj, poses)
-    u.test_alignment_to_get_direction(poses[1])
-    vis_array = u.get_test_visualization_marker_array()
-    # print(vis_array)
-    pub.publish(vis_array)
-    rospy.sleep(1.0)
-    rospy.spin()
+    # container_obj = ("free_cup", "free_cup2")
+    # poses = []
+    # for i in container_obj:
+    #     poses.append(u.get_transform("map", i))
+    #
+    # u.create_obj_test_alignment(container_obj, poses)
+    # u.test_alignment_to_get_direction(poses[1])
+    # vis_array = u.get_test_visualization_marker_array()
+    # # print(vis_array)
+    # pub.publish(vis_array)
+    # rospy.sleep(1.0)
+    # rospy.spin()

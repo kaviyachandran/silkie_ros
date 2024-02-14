@@ -4,10 +4,10 @@
 
 # Affordance to check - pouring is possible only if there is source and destination in reachable space [NEAR-FAR]
 # Containedobject can just be any object, not necessarily liquid.
-p_0: canContain(?x,?l), Liquid(?l) => Container(?x)
+p_0: canContain(?x,?l), Thing(?l) => Container(?x)
 
 # Containment disposition
-r_1: Container(?x),  Liquid(?l), contains(?x, ?l) => canPour(?x, ?l)
+r_1: Container(?x),  Thing(?l), contains(?x, ?l) => canPour(?x, ?l)
 r_1a: canPour(?x ,?l) => SourceRole(?x)
 r_2: canContain(?x, ?l) => hasDisp(?x, Containment)
 r_2a: contains(?x, ?l) => inside(?l, ?x)
@@ -33,9 +33,9 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 # Liquid cannot penetrate solid objects
 # adapted from hobbsian road ex
 
-6: Container(?w), Liquid(?x), inside(?x,?w), outside(?y,?w), hasOpening(?w,?z), willBeAt(?x,?y) => passThrough(?x,?z)
-7: Container(?w), Liquid(?x), inside(?x,?w), outside(?y,?w), hasOpening(?w,?z), willBeAt(?x,?y) => -canAvoid(?x,?z)
-8: Container(?w), Liquid(?x), inside(?x,?w), outside(?y,?w), passThrough(?x,?z), willBeAt(?x,?y) => Opening(?z)
+6: Container(?w), Thing(?x), inside(?x,?w), outside(?y,?w), hasOpening(?w,?z), willBeAt(?x,?y) => passThrough(?x,?z)
+7: Container(?w), Thing(?x), inside(?x,?w), outside(?y,?w), hasOpening(?w,?z), willBeAt(?x,?y) => -canAvoid(?x,?z)
+8: Container(?w), Thing(?x), inside(?x,?w), outside(?y,?w), passThrough(?x,?z), willBeAt(?x,?y) => Opening(?z)
 
 # Verticality - gives the quantity of liquid in the container
 # Some notion of overflow - liquid outside the destination. In this case, we need to stop pouring
@@ -44,7 +44,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 10: Container(?s), Container(?d), poursTo(?s,?d), overflows(?d) => -canPourTo(?s,?d)
 
 10a: Container(?s), Container(?d), SourceRole(?s), DestinationRole(?d), poursTo(?s, ?d), -canPourTo(?s, ?d), LocationRole(?l), at(?s, ?l), hasDestination(?s, ?g) => willBeUprightAt(?s, ?g)
-10b: Liquid(?x), contains(?s,?x), LocationRole(?g), at(?s,?g), hasOpening(?s, ?o), -passThrough(?x, ?o), -canPourTo(?s,?d) => uprightAt(?s,?g)
+10b: Thing(?x), contains(?s,?x), LocationRole(?g), at(?s,?g), hasOpening(?s, ?o), -passThrough(?x, ?o), -canPourTo(?s,?d) => uprightAt(?s,?g)
 
 # what does spilling mean? - when a piece of liquid is outside the destination. We need to adjust the pose or the tilt angle
 # todo - can we state poursTo already
@@ -75,12 +75,12 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ## When to tilt - source is held above the height of the destination. cantilt
 ## This is not the case for source with a long spout. But we did not make a case for the tilting space
 ## todo: Should we state that there should be no object between s and d?
-16: Container(?s), Liquid(?x), contains(?s,?x), Container(?d),  near(?s, ?d), above(?s, ?d), hasOpening(?s,?o), hasOpening(?d,?p) => canTiltAbove(?s, ?d)
+16: Container(?s), Thing(?x), contains(?s,?x), Container(?d),  near(?s, ?d), above(?s, ?d), hasOpening(?s,?o), hasOpening(?d,?p) => canTiltAbove(?s, ?d)
 
 ### Todo: Tilting space is a sphere(almost) anywhere the openings lie within
 
 ### Source moves up and ends at a point in a plane above the Destination. IS: SPG. G is in the boundaries of the circle
-17: Container(?s), Liquid(?x), contains(?s,?x), Container(?d), hasPeriphery(?d, ?p), LocationRole(?l), at(?s, ?l), LocationRole(?g), above(?g, ?p), hasDestination(?s, ?g) => willBeAt(?s, ?g)
+17: Container(?s), Thing(?x), contains(?s,?x), Container(?d), hasPeriphery(?d, ?p), LocationRole(?l), at(?s, ?l), LocationRole(?g), above(?g, ?p), hasDestination(?s, ?g) => willBeAt(?s, ?g)
 
 ### Tilting start pose and an end pose again as IS: SPG?. Here G is a pose where the liquid comes out.
 ### Tilt destination is a location at which the openings of s is within ds, liquid pass through s's opening and is contained inside d. 
@@ -111,7 +111,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
 23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
 23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
-23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), is_spilled(?l)  => P_decreaseTilting(?src)
+23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
@@ -133,7 +133,12 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 25a > 18c
 
 # Liquid flows out through the lowest corner(point) in the container while tilting, we want the water flow through one point so that we can control the flow
-# 26a: SourceRole(?s), hasEdges(?s),
+# Not sure if the below should be a query to perception or simulation
+26a: SourceRole(?s), DestinationRole(?d), hasEdges(?s), poursTo(?s, ?d), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), aligned(?p, ?d), -goalReached(?d) => Q_pourThrough(?s, ?p)
+
+# This is to rotate the source towards the destination -> rotate along z axis
+26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?p, ?d), -goalReached(?d) => P_rotateTowards(?p, ?d)
+26c: SourceRole(?s), hasEdges(?s), CornerRegion(?p), hasLowestOpeningCorner(?s, ?p) => pourThrough(?s, ?p)
 
 ### Which direction to move to in case of spill
 

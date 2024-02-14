@@ -35,12 +35,13 @@ class Blackboard(object):
             "dest": "free_cup2",
             "source_type": "Container",
             "dest_type": "Container",
-            "poured_substance_type": "Liquid",  # changing Thing to Liquid
+            "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
             "total_particles": 200,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60
+            "dest_goal": 60,
+            "sourceHasEdges": True,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
             'updatedBy': "",
@@ -63,11 +64,14 @@ class Blackboard(object):
             "hasOpeningWithin": False,
             "movesUpIn": False,
             "almostGoalReached": False,
+            "srcCornerAligned": False,
+
             # - (0, -1) ---> Behind. move upwards. in +y direction
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
             # - (-1, 0) ---> Left. move right. in +x direction
             "locationOfSourceRelativeToDestination": [],
+            "srcCornerSpoutRegion": ""
         }
         # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
         # if dimension_data:
@@ -75,6 +79,7 @@ class Blackboard(object):
         # else:
         self.scene_desc["source_dim"] = (0.0646, 0.0646, 0.18)
         self.scene_desc["dest_dim"] = (0.0646, 0.0646, 0.18)
+        self.corner_regions = {"1,1": "top_right", "1,-1": "top_left", "-1,1": "bottom_right", "-1,-1": "bottom_left"}
 
 
     def set_scene_desc(self, key: str, value):
@@ -161,6 +166,8 @@ class Reasoner:
                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
+        if self.bb.scene_desc["sourceHasEdges"]:
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasEdges", "", silkie.DEFEASIBLE))
 
         return facts
 
@@ -261,6 +268,23 @@ class Reasoner:
         elif not self.bb.context_values["almostGoalReached"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-almostGoalReached",
                                                             "", silkie.DEFEASIBLE))
+        if self.bb.scene_desc["sourceHasEdges"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.context_values["srcCornerSpoutRegion"],
+                                                            "CornerRegion", "", silkie.DEFEASIBLE))
+
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"],
+                                                            "hasLowestOpeningCorner",
+                                                            self.bb.context_values["srcCornerSpoutRegion"],
+                                                            silkie.DEFEASIBLE))
+
+            if self.bb.context_values["srcCornerAligned"]:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "aligned",
+                                                                self.bb.context_values["srcCornerSpoutRegion"],
+                                                                silkie.DEFEASIBLE))
+            elif not self.bb.context_values["srcCornerAligned"]:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-aligned",
+                                                                self.bb.context_values["srcCornerSpoutRegion"],
+                                                                silkie.DEFEASIBLE))
 
         return
 
@@ -322,6 +346,8 @@ class SimulationSource:
         self.opening_within = False
         self.direction_vector = (0, 0)  # to make the opening_within true
         self.debug = False
+        self.corner_aligned = False
+        self.corner_region = ""
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -474,10 +500,14 @@ class SimulationSource:
             # print(f'src_Pose: {self.bb.context_values["source_pose"].pose}, src_dim: {self.bb.scene_desc[
             # "source_dim"]}, ' f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {
             # self.bb.scene_desc["dest_dim"]}')
+            corner_points = False
+            if self.bb.context_values["sourceHasEdges"]:
+                corner_points = True
             within, closest_point = self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose,
                                                                               self.bb.scene_desc["source_dim"],
                                                                               self.bb.context_values["dest_pose"].pose,
-                                                                              self.bb.scene_desc["dest_dim"])
+                                                                              self.bb.scene_desc["dest_dim"],
+                                                                              corner_points)
             if within:
                 self.opening_within = True
                 # print("opening within")
@@ -488,6 +518,30 @@ class SimulationSource:
                     [self.bb.context_values["dest_pose"].pose.position.x,
                      self.bb.context_values["dest_pose"].pose.position.y]) - closest_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
+
+            if self.bb.context_values["sourceHasEdges"]:
+                self.corner_aligned = self.util_helper.is_corner_aligned(
+                    self.bb.context_values["source_pose"].pose.position,
+                    self.bb.scene_desc["source_dim"][2],
+                    self.bb.context_values["dest_pose"].pose.position,
+                    self.bb.scene_desc["dest_dim"][2],
+                    closest_point)
+
+                pt = closest_point - np.array([self.bb.context_values["source_pose"].pose.position.x,
+                                               self.bb.context_values["source_pose"].pose.position.y,
+                                               self.bb.context_values["source_pose"].pose.position.z])
+                temp_str = ""
+                if pt[0] > 0:
+                    temp_str += "1"
+                else:
+                    temp_str += "-1"
+                temp_str += ","
+                if pt[1] > 0:
+                    temp_str += "1"
+                else:
+                    temp_str += "-1"
+
+                self.corner_region = self.bb.corner_regions[temp_str]
 
         if self.debug:
             self.publish_test_markers()
@@ -560,6 +614,18 @@ class SimulationSource:
             self.bb.context_values["dest_goal_reached"] = True
         else:
             self.bb.context_values["dest_goal_reached"] = False
+
+        # corner aligned
+        if self.corner_aligned:
+            self.bb.context_values["srcCornerAligned"] = True
+        else:
+            self.bb.context_values["srcCornerAligned"] = False
+
+        # corner region
+        if self.corner_region:
+            self.bb.context_values["srcCornerSpoutRegion"] = self.corner_region
+        else:
+            self.bb.context_values["srcCornerSpoutRegion"] = ""
 
         if self.opening_within:
             self.bb.context_values["hasOpeningWithin"] = True
