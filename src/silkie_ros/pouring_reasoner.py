@@ -522,7 +522,7 @@ class SimulationSource:
             # "source_dim"]}, ' f'dest_pose: {self.bb.context_values["dest_pose"].pose}, dest_dim: {
             # self.bb.scene_desc["dest_dim"]}')
             corner_points = False
-            if self.bb.context_values["sourceHasEdges"]:
+            if self.bb.scene_desc["sourceHasEdges"]:
                 corner_points = True
             within, closest_point = self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose,
                                                                               self.bb.scene_desc["source_dim"],
@@ -540,7 +540,7 @@ class SimulationSource:
                      self.bb.context_values["dest_pose"].pose.position.y]) - closest_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
 
-            if self.bb.context_values["sourceHasEdges"]:
+            if self.bb.scene_desc["sourceHasEdges"]:
                 self.corner_aligned, self.rot_dir = self.util_helper.is_corner_aligned(
                     self.bb.context_values["source_pose"].pose.position,
                     self.bb.scene_desc["source_dim"][2],
@@ -596,7 +596,7 @@ class SimulationSource:
             self.bb.context_values["isSpilled"] = False
 
         # spilling now
-        if np.count_nonzero(np.diff(self.spilled_particles)) == 5:
+        if np.count_nonzero(np.diff(self.spilled_particles)) >= 3:
             self.bb.context_values["isSpilling"] = True
         else:
             self.bb.context_values["isSpilling"] = False

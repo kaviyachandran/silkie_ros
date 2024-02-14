@@ -87,7 +87,10 @@ class Utils(object):
             -> (bool, tuple):
         # print("src pose ", map_Pose_src)
         # opening_within = False
-        src_A, src_B, src_C, src_D = np.zeros(3)
+        src_A = np.zeros(3)
+        src_B = np.zeros(3)
+        src_C = np.zeros(3)
+        src_D = np.zeros(3)
         # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
         if corner:
             src_A, src_B, src_C, src_D = self._get_corner_points(src_pose.orientation, (src_dim[0] * 0.75,
@@ -391,53 +394,42 @@ class Utils(object):
 #     rospy.init_node('test_node')
 #     u = Utils()
 #     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
-    # 	container_pose = Pose()
-    # 	container_pose.position.x = 2
-    # 	container_pose.position.y = -0.1998
-    # 	container_pose.position.z = 0.670
-    # 	# container_pose.orientation.w = 1
-    # 	container_pose.orientation.x = 0
-    # 	container_pose.orientation.y = 0.38268
-    # 	container_pose.orientation.z = 0
-    # 	container_pose.orientation.w = 0.92387
-    # 	container_dim = (0.2089, 0.2089, 0.06)
-    # 	pose_pot_obj = Point()
-    # 	pose_pot_obj.x = 0.043
-    # 	pose_pot_obj.y = -0.052
-    # 	pose_pot_obj.z = 0.001
-    #
-    # 	# closest_point_on_rectangle_to_point(container_pose, container_dim, pose_pot_obj)
-    # 	get_distance_to_retained_object(container_pose, container_dim, pose_pot_obj)
-    # src_Pose_dest = ([0.0003565384047523601, 0.4002190860441465, 0.0005981301133040628], [0, 0, 0.7071, 0.7071])
-    # map_Pose_src = u.get_transform("map", "free_cup")
-    # src_pose = Pose()
-    # src_pose.position.x = map_Pose_src[0][0]
-    # src_pose.position.y = map_Pose_src[0][1]
-    # src_pose.position.z = map_Pose_src[0][2]
-    # src_pose.orientation.x = map_Pose_src[1][0]
-    # src_pose.orientation.y = map_Pose_src[1][1]
-    # src_pose.orientation.z = map_Pose_src[1][2]
-    # src_pose.orientation.w = map_Pose_src[1][3]
-    # src_dim = (0.0646, 0.0646, 0.18)
-    # dest_pose = Pose()
-    # dest_pose.position.x = 1.9998643009882282
-    # dest_pose.position.y = -0.6001155389875352
-    # dest_pose.position.z = 0.30538641729671684
-    # dest_pose.orientation.x = -3.328273309018623e-06
-    # dest_pose.orientation.y = 1.298903533812593e-05
-    # dest_pose.orientation.z = -2.3896462101018977e-06
-    # dest_pose.orientation.w = 0.9999999999072484
-    # dest_dim = (0.0646, 0.0646, 0.18)
-    # within = u.is_source_opening_within(src_pose, src_dim, dest_pose, dest_dim)
-    # container_obj = ("free_cup", "free_cup2")
-    # poses = []
-    # for i in container_obj:
-    #     poses.append(u.get_transform("map", i))
-    #
-    # u.create_obj_test_alignment(container_obj, poses)
-    # u.test_alignment_to_get_direction(poses[1])
-    # vis_array = u.get_test_visualization_marker_array()
-    # # print(vis_array)
-    # pub.publish(vis_array)
-    # rospy.sleep(1.0)
-    # rospy.spin()
+#
+#
+#     sp = Pose()
+#
+#     dim = (0.0646, 0.0646, 0.18)
+#     container_obj = ("free_cup2", "free_cup")
+#     poses = []
+#     for i in container_obj:
+#         poses.append(u.get_transform("map", i))
+#
+#     sp.position.x = poses[0][0][0]
+#     sp.position.y = poses[0][0][1]
+#     sp.position.z = poses[0][0][2]
+#     sp.orientation.x = poses[0][1][0]
+#     sp.orientation.y = poses[0][1][1]
+#     sp.orientation.z = poses[0][1][2]
+#     sp.orientation.w = poses[0][1][3]
+#
+#     dp = Pose()
+#     dp.position.x = poses[1][0][0]
+#     dp.position.y = poses[1][0][1]
+#     dp.position.z = poses[1][0][2]
+#     dp.orientation.x = poses[1][1][0]
+#     dp.orientation.y = poses[1][1][1]
+#     dp.orientation.z = poses[1][1][2]
+#     dp.orientation.w = poses[1][1][3]
+#
+#     within = u.is_source_opening_within(sp, dim, dp, dim, corner=False)
+#     print("openinggg ", within)
+#     # opening within
+#
+#     #
+#     # u.create_obj_test_alignment(container_obj, poses)
+#     # u.test_alignment_to_get_direction(poses[1])
+#     vis_array = u.get_test_visualization_marker_array()
+#     # # print(vis_array)
+#     pub.publish(vis_array)
+#     rospy.sleep(1.0)
+#     rospy.spin()
