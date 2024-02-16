@@ -118,6 +118,7 @@ class BlackboardController:
         self.reasoner = Reasoner(bb)
         self.queries_for_experts = []
         self.visualize = visualize
+        self.fig_counter = 0
 
     def update_context(self) -> None:
         print("controller")
@@ -136,7 +137,7 @@ class BlackboardController:
         if graphStoragePrefix is not None:
             visFile = graphStoragePrefix + "_%d.gml" % k
 
-        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, visFile=visFile)
+        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, fig=fig, visFile=visFile)
         conclusions = silkie.idx2strConclusions(conclusions, i2s)
         for c in conclusions.defeasiblyProvable:
             if c[0] in whitelist:
@@ -156,7 +157,8 @@ class BlackboardController:
             print("i2s ", i2s_canPour)
             if self.visualize:
                 self.reportTargetConclusions(theory_canPour, i2s_canPour, ["canPour", "-canPour"],
-                                             graphStoragePrefix=None, k=0)
+                                             graphStoragePrefix=None, k=self.fig_counter)
+                self.fig_counter += 1
         else:
             return
         publish_data: Dict = {}
