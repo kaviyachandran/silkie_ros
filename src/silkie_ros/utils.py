@@ -147,7 +147,6 @@ class Utils(object):
         # print("dest points: ", a, b, c)
         # print("vectors ", ab, ap, ac)
         # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
-        self.test_marker_array = MarkerArray()
         # self.test_marker_array.markers.append(
         #     self._create_vis_marker(parent_frame='map', ns='free_cup2', obj_type=1, action=0, color=(0, 0, 1),
         #                             lifetime=0,
@@ -226,8 +225,38 @@ class Utils(object):
             aligned = True
         return aligned, direction[np.sign(cross_pdt)]
 
+    def is_above(self, src_pose: Pose, src_h: float, dest_pose: Pose, dest_h: float, dest_name: str) -> bool:
+        src_bottom_point = np.array([0, 0, -src_h / 2])
+        rotated_src_bottom_point = self.rotate_point(src_bottom_point, quaternion_matrix(np.array([
+                                                    src_pose.orientation.x, src_pose.orientation.y,
+                                                    src_pose.orientation.z, src_pose.orientation.w])))
+        map_Point_src_bottom = rotated_src_bottom_point + np.array([src_pose.position.x, src_pose.position.y,
+                                                                    src_pose.position.z])
+        dest_top_point = np.array([0, 0, dest_pose.position.z + dest_h / 2])
+        map_Pose_dest = self._get_transform_matrix_from_pose(dest_pose)
+        dest_Pose_map = np.linalg.inv(map_Pose_dest)
+        # TODO : Use the wrapper in giskard
+        # to transform point : https://github.com/SemRoCo/giskardpy/blob/81325ff1c8e41c2392bd10304553341624549cbf/src/giskardpy/utils/tfwrapper.py#L87
+        dest_Point_src_bottom = np.dot(dest_Pose_map, np.hstack((map_Point_src_bottom, [1])).reshape(4, 1))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame=dest_name, ns='src_bottom_pt', obj_type=2, action=0, color=(1, 1, 0),
+                                    lifetime=0, position=dest_Point_src_bottom[:3], size=(0.01, 0.01, 0.01)))
+        return dest_Point_src_bottom[2] > dest_top_point[2]
+
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
+
+    def _get_transform_matrix_from_pose(self, pose: Pose) -> np.array:
+        rotation_mat = quaternion_matrix(
+            np.array([pose.orientation.x, pose.orientation.y, pose.orientation.z,
+                      pose.orientation.w]))
+
+        tf_matrix = np.hstack((rotation_mat[:3, :3],
+                                np.array([pose.position.x, pose.position.y,
+                                          pose.position.z]).reshape(3, 1)))
+        tf_matrix = np.vstack((tf_matrix, np.array([0, 0, 0, 1]).reshape(1, 4)))
+
+        return tf_matrix
 
     def _get_points_on_line(self, lies_along: str, direction: str, obj_pose: Pose, obj_dim: tuple):
         x_val = obj_dim[0] / 2

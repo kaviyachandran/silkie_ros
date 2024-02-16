@@ -107,12 +107,15 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
 
 # At the moment, there can be only one conclusion so splitting the motion command in different rules
-23a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
-23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
-23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
-23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
-23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
-23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
+23a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
+23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
+23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
+23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
+23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
+23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
+
+# For the source container to move above the destination container
+23f: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -above(?src, ?dest), -goalReached(?dest)  => P_moveAbove(?src, ?dest)
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
@@ -145,3 +148,4 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Which direction to move to in case of spill
 
 ### In case of overflow, move back to upright
+
