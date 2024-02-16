@@ -138,9 +138,9 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 26a: SourceRole(?s), DestinationRole(?d), hasEdges(?s), poursTo(?s, ?d), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), aligned(?p, ?d), -goalReached(?d) => Q_pourThrough(?s, ?p)
 
 # This is to rotate the source towards the destination -> rotate along z axis
-26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?p, ?d), -goalReached(?d) => P_rotateTowards(?p, ?d)
-26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?p, ?d), -goalReached(?d), RotationDirection(?dir) => P_rotateAlong(?s, ?dir)
-26c: SourceRole(?s), hasEdges(?s), CornerRegion(?p), hasLowestOpeningCorner(?s, ?p) => pourThrough(?s, ?p)
+26b: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?d, ?p), -goalReached(?d) => P_rotateTowards(?p, ?d)
+26c: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?d, ?p), -goalReached(?d), RotationDirection(?dir) => P_rotateAlong(?s, ?dir)
+26d: SourceRole(?s), hasEdges(?s), CornerRegion(?p), hasLowestOpeningCorner(?s, ?p) => pourThrough(?s, ?p)
 
 ### Which direction to move to in case of spill
 

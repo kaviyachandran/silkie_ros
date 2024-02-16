@@ -12,6 +12,8 @@ from typing import Dict, Any
 
 import numpy as np
 import silkie
+import matplotlib.pyplot as plt
+import argparse
 
 from utils import Utils
 
@@ -82,7 +84,6 @@ class Blackboard(object):
         self.scene_desc["dest_dim"] = (0.0646, 0.0646, 0.18)
         self.corner_regions = {"1,1": "top_right", "1,-1": "top_left", "-1,1": "bottom_right", "-1,-1": "bottom_left"}
 
-
     def set_scene_desc(self, key: str, value):
         self.scene_desc[key] = value
 
@@ -110,12 +111,13 @@ class Blackboard(object):
 
 class BlackboardController:
 
-    def __init__(self, bb):
+    def __init__(self, bb: Blackboard, visualize: bool):
         self.concluded_behavior_publisher = rospy.Publisher("/reasoner/concluded_behaviors", String, queue_size=10)
 
         self.bb_obj = bb
         self.reasoner = Reasoner(bb)
         self.queries_for_experts = []
+        self.visualize = visualize
 
     def update_context(self) -> None:
         print("controller")
@@ -123,12 +125,38 @@ class BlackboardController:
             expert.update()
             expert.query(self.queries_for_experts)
 
+    def reportTargetConclusions(self, theory, i2s, whitelist, graphStoragePrefix=None, k=0):
+        print(type(theory), type(i2s))
+        fig, plotWindow = plt.subplots(figsize=(7, 7))
+        if plotWindow is not None:
+            plt.cla()
+        if "" == graphStoragePrefix:
+            graphStoragePrefix = None
+        visFile = None
+        if graphStoragePrefix is not None:
+            visFile = graphStoragePrefix + "_%d.gml" % k
+
+        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, visFile=visFile)
+        conclusions = silkie.idx2strConclusions(conclusions, i2s)
+        for c in conclusions.defeasiblyProvable:
+            if c[0] in whitelist:
+                print("def ", c)
+        if plotWindow is not None:
+            plt.draw()
+            plt.pause(0.001)
+            input("Press ENTER to continue")
+
     def get_consequents(self):
         theory = self.reasoner.build_theory()
         if len(theory):
             theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
             print("theory", theoryStr_canPour)
             concluded_facts = theoryStr_canPour.split("\n")
+            print("t ", theory_canPour)
+            print("i2s ", i2s_canPour)
+            if self.visualize:
+                self.reportTargetConclusions(theory_canPour, i2s_canPour, ["canPour", "-canPour"],
+                                             graphStoragePrefix=None, k=0)
         else:
             return
         publish_data: Dict = {}
@@ -277,9 +305,9 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-almostGoalReached",
                                                             "", silkie.DEFEASIBLE))
         if self.bb.context_values["rotationDirection"]:
-            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "RotationDirection",
-                                                            self.bb.context_values["rotationDirection"],
-                                                            silkie.DEFEASIBLE))
+            self.current_facts.update(Reasoner.create_facts(self.bb.context_values["rotationDirection"],
+                                                            "RotationDirection",
+                                                            "", silkie.DEFEASIBLE))
 
         if self.bb.scene_desc["sourceHasEdges"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.context_values["srcCornerSpoutRegion"],
@@ -433,11 +461,11 @@ class SimulationSource:
                                                        self.dest_bounding_box_pose.position)
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
-            if len(self.object_flow) > 3:
-                self.object_flow = self.object_flow[-3:]
-
-            if len(self.spilled_particles) > 5:
-                self.spilled_particles = self.spilled_particles[-5:]
+            # if len(self.object_flow) > 3:
+            #     self.object_flow = self.object_flow[-3:]
+            #
+            # if len(self.spilled_particles) > 5:
+            #     self.spilled_particles = self.spilled_particles[-5:]
 
             for obj in req.object_states:
                 if "ball" in obj.name:
@@ -524,11 +552,12 @@ class SimulationSource:
             corner_points = False
             if self.bb.scene_desc["sourceHasEdges"]:
                 corner_points = True
-            within, closest_point = self.util_helper.is_source_opening_within(self.bb.context_values["source_pose"].pose,
-                                                                              self.bb.scene_desc["source_dim"],
-                                                                              self.bb.context_values["dest_pose"].pose,
-                                                                              self.bb.scene_desc["dest_dim"],
-                                                                              corner_points)
+            within, closest_point = self.util_helper.is_source_opening_within(
+                self.bb.context_values["source_pose"].pose,
+                self.bb.scene_desc["source_dim"],
+                self.bb.context_values["dest_pose"].pose,
+                self.bb.scene_desc["dest_dim"],
+                corner_points)
             if within:
                 self.opening_within = True
                 # print("opening within")
@@ -699,10 +728,19 @@ class Perception:
 
 if __name__ == '__main__':
     rospy.init_node('reasoner_sim_node')
+
+    parser = argparse.ArgumentParser(prog="pouring_reasoner", description="Visualize theory",
+                                     epilog="")
+    parser.add_argument('-v', '--visualize', action='store_true', help='Enable visualization.')
+    parser.add_argument('-s', '--storeplots', default='', help='Prefix of filenames to store visualizations in.')
+
+    arguments = parser.parse_args()
+    doVisualize = arguments.visualize
+
     blackboard = Blackboard()
     blackboard.add_experts(SimulationSource(blackboard))
 
-    controller = BlackboardController(blackboard)
+    controller = BlackboardController(blackboard, visualize=doVisualize)
 
     rate = rospy.Rate(10)  # 10hz
     while not rospy.is_shutdown():
