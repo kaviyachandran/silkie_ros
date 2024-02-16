@@ -73,6 +73,7 @@ class Blackboard(object):
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
             # - (-1, 0) ---> Left. move right. in +x direction
+            "srcAbove": False,
             "locationOfSourceRelativeToDestination": [],
             "srcCornerSpoutRegion": ""
         }
@@ -119,6 +120,7 @@ class BlackboardController:
         self.queries_for_experts = []
         self.visualize = visualize
         self.fig_counter = 0
+        self.fig, self.plotWindow = plt.subplots(figsize=(7, 7))
 
     def update_context(self) -> None:
         print("controller")
@@ -126,9 +128,9 @@ class BlackboardController:
             expert.update()
             expert.query(self.queries_for_experts)
 
-    def reportTargetConclusions(self, theory, i2s, whitelist, graphStoragePrefix=None, k=0):
+    def reportTargetConclusions(self, theory, i2s, whitelist, fig, plotWindow, graphStoragePrefix=None, k=0):
         print(type(theory), type(i2s))
-        fig, plotWindow = plt.subplots(figsize=(7, 7))
+
         if plotWindow is not None:
             plt.cla()
         if "" == graphStoragePrefix:
@@ -142,10 +144,10 @@ class BlackboardController:
         for c in conclusions.defeasiblyProvable:
             if c[0] in whitelist:
                 print("def ", c)
-        if plotWindow is not None:
-            plt.draw()
-            plt.pause(0.001)
-            input("Press ENTER to continue")
+        # if plotWindow is not None:
+        #     plt.draw()
+        #     plt.pause(0.001)
+        #     input("Press ENTER to continue")
 
     def get_consequents(self):
         theory = self.reasoner.build_theory()
@@ -157,7 +159,8 @@ class BlackboardController:
             print("i2s ", i2s_canPour)
             if self.visualize:
                 self.reportTargetConclusions(theory_canPour, i2s_canPour, ["canPour", "-canPour"],
-                                             graphStoragePrefix=None, k=self.fig_counter)
+                                             graphStoragePrefix=None, fig=self.fig, plotWindow=self.plotWindow,
+                                             k=self.fig_counter)
                 self.fig_counter += 1
         else:
             return
@@ -545,6 +548,14 @@ class SimulationSource:
             # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
             #       f'point:{point_cup_bottom}, rotated_pt:{point_map_bottom},'
             #       f' src_vector:{src_vector}')
+
+            # compute above (in dest frame)
+            if self.util_helper.is_above(self.bb.context_values["source_pose"].pose,
+                                         self.bb.scene_desc["source_dim"][2],
+                                         self.bb.context_values["dest_pose"].pose,
+                                         self.bb.scene_desc["dest_dim"][2],
+                                         self.bb.scene_desc["dest"]):
+                self.bb.context_values["srcAbove"] = True
 
             # compute opening within or not
 
