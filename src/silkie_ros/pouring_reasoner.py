@@ -332,6 +332,13 @@ class Reasoner:
                                                                 self.bb.context_values["srcCornerSpoutRegion"],
                                                                 silkie.DEFEASIBLE))
 
+        if self.bb.context_values["srcAbove"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "above",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["srcAbove"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-above",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+
         return
 
     @staticmethod
@@ -396,6 +403,7 @@ class SimulationSource:
         self.corner_aligned = False
         self.corner_region = ""
         self.rot_dir = ""
+        self.is_src_above = False
 
     @staticmethod
     def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
@@ -495,6 +503,8 @@ class SimulationSource:
             if self.object_in_dest < count_in_dest:
                 self.particle_increase_in_dest = True
                 self.object_in_dest = count_in_dest
+            else:
+                self.particle_increase_in_dest = False
 
             # if len(self.object_flow) > 3:
             #     obj_avg = np.average(self.object_flow[-3:])
@@ -516,6 +526,7 @@ class SimulationSource:
                 self.spilling = True
                 print("ooopss spilled.... ", count)
             else:
+                self.spilling = False
                 print("no spilling ", count)
 
             # upright
@@ -555,7 +566,9 @@ class SimulationSource:
                                          self.bb.context_values["dest_pose"].pose,
                                          self.bb.scene_desc["dest_dim"][2],
                                          self.bb.scene_desc["dest"]):
-                self.bb.context_values["srcAbove"] = True
+                self.is_src_above = True
+            else:
+                self.is_src_above = False
 
             # compute opening within or not
 
@@ -702,6 +715,13 @@ class SimulationSource:
             self.rot_dir = ""
         else:
             self.bb.context_values["rotationDirection"] = ""
+
+        # src above
+        if self.is_src_above:
+            self.bb.context_values["srcAbove"] = True
+        else:
+            self.bb.context_values["srcAbove"] = False
+
         if self.opening_within:
             self.bb.context_values["hasOpeningWithin"] = True
         else:
