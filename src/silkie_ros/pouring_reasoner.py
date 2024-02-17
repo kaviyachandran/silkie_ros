@@ -594,6 +594,7 @@ class SimulationSource:
                     [self.bb.context_values["dest_pose"].pose.position.x,
                      self.bb.context_values["dest_pose"].pose.position.y]) - closest_point[0:2]
                 self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
+                self.opening_within = False
 
             if self.bb.scene_desc["sourceHasEdges"]:
                 self.corner_aligned, self.rot_dir = self.util_helper.is_corner_aligned(
@@ -618,6 +619,10 @@ class SimulationSource:
                     temp_str += "-1"
 
                 self.corner_region = self.bb.corner_regions[temp_str]
+            else:
+                self.corner_aligned = False
+                self.corner_region = None
+                self.rot_dir= None
 
         if self.debug:
             self.publish_test_markers()
