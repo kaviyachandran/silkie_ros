@@ -241,7 +241,8 @@ class Utils(object):
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame=dest_name, ns='src_bottom_pt', obj_type=2, action=0, color=(1, 1, 0),
                                     lifetime=0, position=dest_Point_src_bottom[:3], size=(0.01, 0.01, 0.01)))
-        return dest_Point_src_bottom[2] > dest_top_point[2]
+        print("points  " , dest_Point_src_bottom[2], dest_top_point[2])
+        return bool(dest_Point_src_bottom[2] > dest_top_point[2])
 
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
@@ -427,15 +428,13 @@ class Utils(object):
 #     u = Utils()
 #     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
 #
-#
-#     sp = Pose()
-#
-#     dim = (0.0646, 0.0646, 0.18)
+# #     dim = (0.0646, 0.0646, 0.18)
 #     container_obj = ("free_cup2", "free_cup")
 #     poses = []
 #     for i in container_obj:
 #         poses.append(u.get_transform("map", i))
 #
+#     sp = Pose()
 #     sp.position.x = poses[0][0][0]
 #     sp.position.y = poses[0][0][1]
 #     sp.position.z = poses[0][0][2]
@@ -458,8 +457,10 @@ class Utils(object):
 #     # opening within
 #
 #     #
-#     # u.create_obj_test_alignment(container_obj, poses)
+#     u.create_obj_test_alignment(container_obj, poses)
 #     # u.test_alignment_to_get_direction(poses[1])
+#     ab = u.is_above(sp, 0.05, dp, 0.05, "free_cup")
+#     print("above ", (ab))
 #     vis_array = u.get_test_visualization_marker_array()
 #     # # print(vis_array)
 #     pub.publish(vis_array)
