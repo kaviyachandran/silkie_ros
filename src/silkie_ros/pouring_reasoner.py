@@ -143,7 +143,7 @@ class BlackboardController:
         if graphStoragePrefix is not None:
             visFile = graphStoragePrefix + "_%d.gml" % k
 
-        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, visFile=visFile)
+        conclusions = silkie.dflInference(theory, i2s=i2s, fig=fig, plotWindow=plotWindow, visFile=visFile)
         conclusions = silkie.idx2strConclusions(conclusions, i2s)
         for c in conclusions.defeasiblyProvable:
             if c[0] in whitelist:
