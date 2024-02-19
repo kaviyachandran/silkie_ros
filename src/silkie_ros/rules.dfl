@@ -9,8 +9,8 @@ p_0: canContain(?x,?l), Thing(?l) => Container(?x)
 # Containment disposition
 r_1: Container(?x),  Thing(?l), contains(?x, ?l) => canPour(?x, ?l)
 r_1a: canPour(?x ,?l) => SourceRole(?x)
-r_2: canContain(?x, ?l) => hasDisp(?x, Containment)
-r_2a: contains(?x, ?l) => inside(?l, ?x)
+r_2: contains(?x, ?l) => hasDisp(?x, Containment)
+#r_2a: contains(?x, ?l) => inside(?l, ?x)
 r_2b: contains(?x, ?l), hasOpening(?x, ?o), hasFacingUpwards(?o) => holdUpright(?x)
 
 # The opening of the source has to be within the boundary of the destination (unless the spout of the source
