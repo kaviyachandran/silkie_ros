@@ -33,16 +33,16 @@ class Blackboard(object):
     def __init__(self):
         self.experts = []
         self.scene_desc = {
-            "source": "sync_create_cup2",
+            "source": "sync_cup2",
             "dest": "sync_bowl",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 10,
+            "total_particles": 50,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 8,
+            "dest_goal": 30,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
@@ -121,10 +121,13 @@ class BlackboardController:
         self.queries_for_experts = []
         self.visualize = visualize
         self.fig_counter = 0
-        self.fig, self.plotWindow = plt.subplots(figsize=(7, 7))
+        self.fig, self.plotWindow = None, None
+        if self.visualize:
+            self.fig, self.plotWindow = plt.subplots(figsize=(7, 7))
 
     def update_context(self) -> None:
         print("controller")
+        print("vis ", self.visualize)
         for expert in self.bb_obj.experts:
             expert.update()
             expert.query(self.queries_for_experts)
@@ -140,21 +143,21 @@ class BlackboardController:
         if graphStoragePrefix is not None:
             visFile = graphStoragePrefix + "_%d.gml" % k
 
-        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, fig=fig, visFile=visFile)
+        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, visFile=visFile)
         conclusions = silkie.idx2strConclusions(conclusions, i2s)
         for c in conclusions.defeasiblyProvable:
             if c[0] in whitelist:
                 print("def ", c)
-        # if plotWindow is not None:
-        #     plt.draw()
-        #     plt.pause(0.001)
-        #     input("Press ENTER to continue")
+        if plotWindow is not None:
+            plt.draw()
+            plt.pause(0.001)
+            input("Press ENTER to continue")
 
     def get_consequents(self):
         theory = self.reasoner.build_theory()
         if len(theory):
             theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
-            print("theory", theoryStr_canPour)
+            print(f'counter:{self.fig_counter} theory: {theoryStr_canPour}')
             concluded_facts = theoryStr_canPour.split("\n")
             # print("t ", theory_canPour)
             # print("i2s ", i2s_canPour)
@@ -162,7 +165,7 @@ class BlackboardController:
                 self.reportTargetConclusions(theory_canPour, i2s_canPour, ["canPour", "-canPour"],
                                              graphStoragePrefix=None, fig=self.fig, plotWindow=self.plotWindow,
                                              k=self.fig_counter)
-                self.fig_counter += 1
+            self.fig_counter += 1
         else:
             return
         publish_data: Dict = {}
@@ -362,7 +365,7 @@ class Reasoner:
 
 class SimulationSource:
 
-    def __init__(self, bb):
+    def __init__(self, bb, doDebug):
         self.util_helper = Utils()
         self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
         self.dest_limits: tuple = ()
@@ -402,22 +405,11 @@ class SimulationSource:
         self.normal_vector = np.array([0, 0, 1])
         self.opening_within = False
         self.direction_vector = (0, 0)  # to make the opening_within true
-        self.debug = False
+        self.debug = doDebug
         self.corner_aligned = False
         self.corner_region = ""
         self.rot_dir = ""
         self.is_src_above = False
-
-    @staticmethod
-    def get_limits(length: float, breadth: float, height: float, position: Point) -> tuple:
-        half_height = height / 2
-        half_breadth = breadth / 2
-        half_length = length / 2
-
-        ll = (position.x - half_length, position.y - half_breadth, position.z - half_height)
-        ul = (position.x + half_length, position.y + half_breadth, position.z + half_height)
-
-        return ll, ul
 
     def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
         src_set = False
@@ -444,7 +436,7 @@ class SimulationSource:
                                                          rospy.Time(
                                                              self.bb.context_values["source_pose"].header.stamp.secs,
                                                              self.bb.context_values[
-                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.09:
+                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.01:
 
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
@@ -452,7 +444,7 @@ class SimulationSource:
             count = 0
             count_not_in_source = 0
             count_in_dest = 0
-            particle_positions = []
+            # particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
                 if obj.name == self.bb.scene_desc["source"]:
@@ -460,10 +452,10 @@ class SimulationSource:
                     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
                     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
                     self.bb.context_values["source_pose"].pose = obj.pose
-                    self.src_limits = SimulationSource.get_limits(self.src_bounding_box_dimensions[0],
+                    self.src_limits = self.util_helper.get_limits(self.src_bounding_box_dimensions[0],
                                                                   self.src_bounding_box_dimensions[1],
                                                                   self.src_bounding_box_dimensions[2],
-                                                                  self.src_bounding_box_pose.position)
+                                                                  self.src_bounding_box_pose.position, ns=("sl", "su"))
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -471,10 +463,10 @@ class SimulationSource:
                     self.bb.context_values["dest_pose"].header.stamp = \
                         self.bb.context_values["source_pose"].header.stamp
                     self.bb.context_values["dest_pose"].pose = obj.pose
-                    self.dest_limits = self.get_limits(self.dest_bounding_box_dimensions[0],
-                                                       self.dest_bounding_box_dimensions[1],
-                                                       self.dest_bounding_box_dimensions[2],
-                                                       self.dest_bounding_box_pose.position)
+                    self.dest_limits = self.util_helper.get_limits(self.dest_bounding_box_dimensions[0],
+                                                                   self.dest_bounding_box_dimensions[1],
+                                                                   self.dest_bounding_box_dimensions[2],
+                                                                   self.dest_bounding_box_pose.position, ns=("dl", "du"))
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             # if len(self.object_flow) > 3:
@@ -489,7 +481,7 @@ class SimulationSource:
                     inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
 
                     if not inside_src and not inside_dest:
-                        particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
+                        # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                         count += 1
                         if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
                             count_not_in_source += 1
@@ -633,6 +625,7 @@ class SimulationSource:
 
     def publish_test_markers(self):
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
+        self.util_helper.test_marker_array.markers = []
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -774,13 +767,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="pouring_reasoner", description="Visualize theory",
                                      epilog="")
     parser.add_argument('-v', '--visualize', action='store_true', help='Enable visualization.')
+    parser.add_argument('-d', '--debug', action='store_true', help='Enable visualizing markers.')
     parser.add_argument('-s', '--storeplots', default='', help='Prefix of filenames to store visualizations in.')
 
     arguments = parser.parse_args()
     doVisualize = arguments.visualize
+    debug = arguments.debug
 
     blackboard = Blackboard()
-    blackboard.add_experts(SimulationSource(blackboard))
+    blackboard.add_experts(SimulationSource(blackboard, debug))
 
     controller = BlackboardController(blackboard, visualize=doVisualize)
 

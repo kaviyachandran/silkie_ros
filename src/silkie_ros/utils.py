@@ -197,7 +197,7 @@ class Utils(object):
         closest_index = np.argsort(distance_val)[0]
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
-                                    position=src_points[closest_index], size=(0.01, 0.01, 0.01)))
+                                    position=src_points[closest_index], size=(0.03, 0.03, 0.03)))
 
         # test_check = [self.point_within_bounds(ab, ac, map_P_src_A - a),
         #               self.point_within_bounds(ab, ac, map_P_src_B - a),
@@ -317,6 +317,23 @@ class Utils(object):
         # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
         # print((np.dot(ap, ab)), (np.dot(ab, ab)), (np.dot(ap, ac)), (np.dot(ac, ac)))
         return 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac)
+
+    def get_limits(self, length: float, breadth: float, height: float, position: Point, ns=None) -> tuple:
+        half_height = height / 2
+        half_breadth = breadth / 2
+        half_length = length / 2
+
+        ll = (position.x - half_length, position.y - half_breadth, position.z - half_height)
+        ul = (position.x + half_length, position.y + half_breadth, position.z + half_height)
+
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=ns[0],
+                                                                      obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
+                                                                      position=ll, size=(0.03, 0.03, 0.03)))
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=ns[1],
+                                                                      obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
+                                                                      position=ul, size=(0.03, 0.03, 0.03)))
+
+        return ll, ul
 
     def _create_vis_marker(self, parent_frame, ns, obj_type, action, color, lifetime, position, size,
                            orientation=Quaternion(0, 0, 0, 1)) -> Marker:
