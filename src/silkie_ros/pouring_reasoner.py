@@ -33,17 +33,17 @@ class Blackboard(object):
     def __init__(self):
         self.experts = []
         self.scene_desc = {
-            "source": "free_cup",
-            "dest": "free_cup2",
+            "source": "sync_create_cup2",
+            "dest": "sync_bowl",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 200,
+            "total_particles": 10,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60,
-            "sourceHasEdges": True,  # This can be obtained from some vis marker array if the type is set correctly
+            "dest_goal": 8,
+            "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
             'updatedBy': "",
@@ -77,12 +77,13 @@ class Blackboard(object):
             "locationOfSourceRelativeToDestination": [],
             "srcCornerSpoutRegion": ""
         }
-        # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
-        # if dimension_data:
-        #     self.set_dimension_values(dimension_data)
-        # else:
-        self.scene_desc["source_dim"] = (0.0646, 0.0646, 0.18)
-        self.scene_desc["dest_dim"] = (0.0646, 0.0646, 0.18)
+        dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
+        if dimension_data:
+            self.set_dimension_values(dimension_data)
+        else:
+            self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
+            self.scene_desc["dest_dim"] = (0.2, 0.2, 0.18)
+
         self.corner_regions = {"1,1": "top_right", "1,-1": "top_left", "-1,1": "bottom_right", "-1,-1": "bottom_left"}
 
     def set_scene_desc(self, key: str, value):
@@ -129,7 +130,7 @@ class BlackboardController:
             expert.query(self.queries_for_experts)
 
     def reportTargetConclusions(self, theory, i2s, whitelist, fig, plotWindow, graphStoragePrefix=None, k=0):
-        print(type(theory), type(i2s))
+        # print(type(theory), type(i2s))
 
         if plotWindow is not None:
             plt.cla()
@@ -155,8 +156,8 @@ class BlackboardController:
             theory_canPour, s2i_canPour, i2s_canPour, theoryStr_canPour = theory
             print("theory", theoryStr_canPour)
             concluded_facts = theoryStr_canPour.split("\n")
-            print("t ", theory_canPour)
-            print("i2s ", i2s_canPour)
+            # print("t ", theory_canPour)
+            # print("i2s ", i2s_canPour)
             if self.visualize:
                 self.reportTargetConclusions(theory_canPour, i2s_canPour, ["canPour", "-canPour"],
                                              graphStoragePrefix=None, fig=self.fig, plotWindow=self.plotWindow,
@@ -202,6 +203,8 @@ class Reasoner:
         facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
         if self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasEdges", "", silkie.DEFEASIBLE))
+        elif not self.bb.scene_desc["sourceHasEdges"]:
+            facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasEdges", "", silkie.DEFEASIBLE))
 
         return facts
 
@@ -521,6 +524,8 @@ class SimulationSource:
                 self.spilling = False
                 print("no spilling ", count)
 
+            print(f"count spill:{count}, spilled_particles:{self.spilled_particles}, object out:{self.object_flow}")
+
             # upright
             # tf_wrist_cup = tf.lookupTransform(self.bb.scene_desc['source'], 'wrist_roll_link', rospy.Time())
 
@@ -551,14 +556,6 @@ class SimulationSource:
             # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
             #       f'point:{point_cup_bottom}, rotated_pt:{point_map_bottom},'
             #       f' src_vector:{src_vector}')
-
-            # compute above (in dest frame)
-            if self.util_helper.is_above(self.bb.context_values["source_pose"].pose,
-                                         self.bb.scene_desc["source_dim"][2],
-                                         self.bb.context_values["dest_pose"].pose,
-                                         self.bb.scene_desc["dest_dim"][2],
-                                         self.bb.scene_desc["dest"]):
-                self.bb.context_values["srcAbove"] = True
 
             # compute opening within or not
 
