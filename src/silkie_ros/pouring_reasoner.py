@@ -366,7 +366,7 @@ class SimulationSource:
         self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
-        self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
+        # self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
         self.sim_queries: list = []
         #  variables to update context values
         self.distance: float = 0.0
@@ -381,7 +381,7 @@ class SimulationSource:
         self.src_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
         self.dest_bounding_box_pose = Pose()
         self.dest_bounding_box_dimensions: tuple = (0.0, 0.0, 0.0)
-        self.bb_values_set = False
+        # self.bb_values_set = False
 
         self.distance_threshold = (0.0, 0.30)
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
@@ -403,20 +403,20 @@ class SimulationSource:
         self.corner_region = ""
         self.rot_dir = ""
 
-    def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
-        src_set = False
-        dest_set = False
-        for marker in data.markers:
-            if marker.ns == self.bb.scene_desc["source"]:
-                self.src_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
-                self.src_bounding_box_pose = marker.pose
-                src_set = True
-            elif marker.ns == self.bb.scene_desc["dest"]:
-                self.dest_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
-                self.dest_bounding_box_pose = marker.pose
-                dest_set = True
-        if src_set and dest_set:
-            self.bb_values_set = True
+    # def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
+    #     src_set = False
+    #     dest_set = False
+    #     for marker in data.markers:
+    #         if marker.ns == self.bb.scene_desc["source"]:
+    #             self.src_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
+    #             self.src_bounding_box_pose = marker.pose
+    #             src_set = True
+    #         elif marker.ns == self.bb.scene_desc["dest"]:
+    #             self.dest_bounding_box_dimensions = (marker.scale.x, marker.scale.y, marker.scale.z)
+    #             self.dest_bounding_box_pose = marker.pose
+    #             dest_set = True
+    #     if src_set and dest_set:
+    #         self.bb_values_set = True
 
     def pose_listener(self, req):
 
@@ -424,11 +424,11 @@ class SimulationSource:
             return lower[0] < val.x < upper[0] and lower[1] < val.y < upper[1] and lower[2] \
                    < val.z < upper[2]
 
-        if self.bb_values_set and req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
+        if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                                          rospy.Time(
                                                              self.bb.context_values["source_pose"].header.stamp.secs,
                                                              self.bb.context_values[
-                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.01:
+                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.05:
 
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
@@ -444,10 +444,9 @@ class SimulationSource:
                     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
                     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
                     self.bb.context_values["source_pose"].pose = obj.pose
-                    self.src_limits = self.util_helper.get_limits(self.src_bounding_box_dimensions[0],
-                                                                  self.src_bounding_box_dimensions[1],
-                                                                  self.src_bounding_box_dimensions[2],
-                                                                  self.src_bounding_box_pose.position, ns=("sl", "su"))
+                    self.src_limits = self.util_helper.get_limits(self.bb.scene_desc["source_dim"],
+                                                                  self.bb.context_values["source_pose"].pose,
+                                                                  ns=("sl", "su"))
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -455,17 +454,16 @@ class SimulationSource:
                     self.bb.context_values["dest_pose"].header.stamp = \
                         self.bb.context_values["source_pose"].header.stamp
                     self.bb.context_values["dest_pose"].pose = obj.pose
-                    self.dest_limits = self.util_helper.get_limits(self.dest_bounding_box_dimensions[0],
-                                                                   self.dest_bounding_box_dimensions[1],
-                                                                   self.dest_bounding_box_dimensions[2],
-                                                                   self.dest_bounding_box_pose.position, ns=("dl", "du"))
+                    self.dest_limits = self.util_helper.get_limits(self.bb.scene_desc["dest_dim"],
+                                                                   self.bb.context_values["dest_pose"].pose,
+                                                                   ns=("dl", "du"))
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             # if len(self.object_flow) > 3:
             #     self.object_flow = self.object_flow[-3:]
-            #
-            # if len(self.spilled_particles) > 5:
-            #     self.spilled_particles = self.spilled_particles[-5:]
+
+            if len(self.spilled_particles) > 5:
+                self.spilled_particles = self.spilled_particles[-5:]
 
             for obj in req.object_states:
                 if "ball" in obj.name:
@@ -501,11 +499,11 @@ class SimulationSource:
             #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
             #  moving towards the dest obj.velocity.linear.x
 
-            self.distance = math.dist((self.src_bounding_box_pose.position.x,
-                                       self.src_bounding_box_pose.position.y),
+            self.distance = math.dist((self.bb.context_values["source_pose"].pose.position.x,
+                                       self.bb.context_values["source_pose"].pose.position.y),
                                       # self.bb.context_values["source_pose"].pose.position.z),
-                                      (self.dest_bounding_box_pose.position.x,
-                                       self.dest_bounding_box_pose.position.y))
+                                      (self.bb.context_values["dest_pose"].pose.position.x,
+                                       self.bb.context_values["dest_pose"].pose.position.y))
             # self.bb.context_values["dest_pose"].pose.position.z))
             # print("dist {}".format(self.distance))
             self.spilled_particles.append(count)
