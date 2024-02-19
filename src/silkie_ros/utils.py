@@ -318,13 +318,20 @@ class Utils(object):
         # print((np.dot(ap, ab)), (np.dot(ab, ab)), (np.dot(ap, ac)), (np.dot(ac, ac)))
         return 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac)
 
-    def get_limits(self, length: float, breadth: float, height: float, position: Point, ns=None) -> tuple:
-        half_height = height / 2
-        half_breadth = breadth / 2
-        half_length = length / 2
+    def get_limits(self, dim: tuple, obj_pose: Pose, ns=None) -> tuple:
+        half_height = dim[2] / 2
+        half_breadth = dim[1] / 2
+        half_length = dim[0] / 2
 
-        ll = (position.x - half_length, position.y - half_breadth, position.z - half_height)
-        ul = (position.x + half_length, position.y + half_breadth, position.z + half_height)
+        obj_Point_ll = (- half_length,  - half_breadth, - half_height)
+        obj_Point_ul = (+ half_length,  + half_breadth, + half_height)
+
+        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y, obj_pose.orientation.z,
+                                                 obj_pose.orientation.w]))
+        ll = self.rotate_point(obj_Point_ll, rot_matrix) + np.array([obj_pose.position.x, obj_pose.position.y,
+                                                                     obj_pose.position.z])
+        ul = self.rotate_point(obj_Point_ul, rot_matrix) + np.array([obj_pose.position.x, obj_pose.position.y,
+                                                                     obj_pose.position.z])
 
         self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=ns[0],
                                                                       obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
@@ -445,13 +452,15 @@ class Utils(object):
 #     u = Utils()
 #     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
 #
-# #     dim = (0.0646, 0.0646, 0.18)
+#
+#     sp = Pose()
+#
+#     dim = (0.1, 0.1, 0.05)
 #     container_obj = ("free_cup2", "free_cup")
 #     poses = []
 #     for i in container_obj:
 #         poses.append(u.get_transform("map", i))
 #
-#     sp = Pose()
 #     sp.position.x = poses[0][0][0]
 #     sp.position.y = poses[0][0][1]
 #     sp.position.z = poses[0][0][2]
@@ -469,17 +478,18 @@ class Utils(object):
 #     dp.orientation.z = poses[1][1][2]
 #     dp.orientation.w = poses[1][1][3]
 #
-#     within = u.is_source_opening_within(sp, dim, dp, dim, corner=False)
-#     print("openinggg ", within)
-#     # opening within
-#
-#     #
+#     u.get_limits(dim, sp, ('sl', 'su'))
+#     u.get_limits(dim, dp, ('dl', 'du'))
+# #     within = u.is_source_opening_within(sp, dim, dp, dim, corner=False)
+# #     print("openinggg ", within)
+# #     # opening within
+# #
+# #     #
 #     u.create_obj_test_alignment(container_obj, poses)
-#     # u.test_alignment_to_get_direction(poses[1])
 #     ab = u.is_above(sp, 0.05, dp, 0.05, "free_cup")
 #     print("above ", (ab))
 #     vis_array = u.get_test_visualization_marker_array()
-#     # # print(vis_array)
+# #     # # print(vis_array)
 #     pub.publish(vis_array)
 #     rospy.sleep(1.0)
 #     rospy.spin()
