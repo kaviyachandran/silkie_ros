@@ -643,7 +643,7 @@ class SimulationSource:
             self.bb.context_values["isSpilled"] = False
 
         # spilling now
-        if np.count_nonzero(np.diff(self.spilled_particles)) >= 3:
+        if np.count_nonzero(np.diff(self.spilled_particles[-5:])) >= 3:
             self.bb.context_values["isSpilling"] = True
         else:
             self.bb.context_values["isSpilling"] = False
