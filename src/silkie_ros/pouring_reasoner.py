@@ -433,7 +433,6 @@ class SimulationSource:
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
                                                self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
-            count = 0
             count_not_in_source = 0
             count_in_dest = 0
             # particle_positions = []
@@ -470,15 +469,17 @@ class SimulationSource:
                     inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
                     inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
 
-                    if not inside_src and not inside_dest:
+                    # if not inside_src and not inside_dest:
                         # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
-                        count += 1
-                        if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
-                            count_not_in_source += 1
-                    elif inside_dest:
+                        #count += 1
+                    if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
+                        count_not_in_source += 1
+                    if inside_dest:
                         count_in_dest += 1
             print("not in source: {}, in dest: {}".format(count_not_in_source, count_in_dest))
-            current_particle_out = count_not_in_source - sum(self.object_flow)
+            all_particles_not_in_src = sum(self.object_flow)
+            current_particle_out = count_not_in_source - all_particles_not_in_src
+            count = all_particles_not_in_src - count_in_dest
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
             elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
