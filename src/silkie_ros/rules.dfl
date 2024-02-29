@@ -145,3 +145,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Which direction to move to in case of spill
 
 ### In case of overflow, move back to upright
+
+# Scraping
+27a: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), aligned(?d, ?p), supports(?s, ?o), -goalReached(?d), Solid(?o) => Q_movesTowards(?o, ?d)
+27b: SourceRole(?s), DestinationRole(?d),  Solid(?o), supports(?s, ?o), -movesTowards(?o, ?d), -goalReached(?d) => P_pushTowards(?o, ?d)

@@ -479,7 +479,7 @@ class SimulationSource:
             print("not in source: {}, in dest: {}".format(count_not_in_source, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
             current_particle_out = count_not_in_source - all_particles_not_in_src
-            count = all_particles_not_in_src - count_in_dest
+            self.spilled_particles.append(all_particles_not_in_src - count_in_dest)
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
             elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
@@ -507,7 +507,10 @@ class SimulationSource:
                                        self.bb.context_values["dest_pose"].pose.position.y))
             # self.bb.context_values["dest_pose"].pose.position.z))
             # print("dist {}".format(self.distance))
-            self.spilled_particles.append(count)
+            if len(self.spilled_particles) >= 2:
+                count = self.spilled_particles[-1] - self.spilled_particles[-2]
+            else:
+                count = self.spilled_particles[-1]
             if count > 0.20 * self.bb.scene_desc["total_particles"]:
                 self.spilling = True
                 print("ooopss spilled.... ", count)
