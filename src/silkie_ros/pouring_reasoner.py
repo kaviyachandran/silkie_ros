@@ -421,14 +421,31 @@ class SimulationSource:
     def pose_listener(self, req):
 
         def inside(upper, lower, val):
-            return lower[0] < val.x < upper[0] and lower[1] < val.y < upper[1] and lower[2] \
-                   < val.z < upper[2]
+            x = False
+            y = False
+            z = False
+            if upper[0] > lower[0]:
+                x = lower[0] < val.x < upper[0]
+            else:
+                x = upper[0] < val.x < lower[0]
+
+            if upper[1] > lower[1]:
+                y = lower[1] < val.y < upper[1]
+            else:
+                y = upper[1] < val.y < lower[1]
+
+            if upper[2] > lower[2]:
+                z = lower[2] < val.z < upper[2]
+            else:
+                z = upper[2] < val.z < lower[2]
+
+            return x and y and z
 
         if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
-                                                         rospy.Time(
-                                                             self.bb.context_values["source_pose"].header.stamp.secs,
-                                                             self.bb.context_values[
-                                                                 "source_pose"].header.stamp.nsecs)).to_sec() >= 0.05:
+                                  rospy.Time(
+                                      self.bb.context_values["source_pose"].header.stamp.secs,
+                                      self.bb.context_values[
+                                          "source_pose"].header.stamp.nsecs)).to_sec() >= 0.05:
 
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
@@ -470,8 +487,8 @@ class SimulationSource:
                     inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
 
                     # if not inside_src and not inside_dest:
-                        # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
-                        #count += 1
+                    # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
+                    # count += 1
                     if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
                         count_not_in_source += 1
                     if inside_dest:
@@ -609,7 +626,7 @@ class SimulationSource:
             else:
                 self.corner_aligned = False
                 self.corner_region = None
-                self.rot_dir= None
+                self.rot_dir = None
 
         if self.debug:
             self.publish_test_markers()
