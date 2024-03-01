@@ -63,6 +63,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 14: inside(?x, ?y) => -outside(?x, ?y)
 15: near(?x, ?y) => near(?y, ?x)
+15a: isTilted(?s) => -upright(?s)
 ## Plane at a height = height of the destination with a normal perpendicular to the ground (z= height of the destination).
 
 ### Below only states if the distance between the source and destination is <= Height of the source. This can be used to
@@ -101,6 +102,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 20: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), isTilted(?s), goalReached(?d) => P_decreaseTilting(?s)
 20a: SourceRole(?s), DestinationRole(?d), near(?s,?d), goalReached(?d) => -canPourTo(?s, ?d)
+20b: SourceRole(?s), DestinationRole(?d), isTilted(?d) => -canPourTo(?s, ?d)
 ##20b: SourceRole(?s), DestinationRole(?d), -isTilted(?s), goalReached(?d) => -canPourTo(?s, ?d)
 
 ##21: Container(?s), SourceRole(?s), Container(?d) => DestinationRole(?d)

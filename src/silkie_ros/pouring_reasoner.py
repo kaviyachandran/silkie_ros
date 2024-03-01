@@ -49,6 +49,7 @@ class Blackboard(object):
             'updatedBy': "",
             'near': False,  # src and dest
             'isTilted': False,  # src
+            'isDestTilted': False,  # dest
             'poursTo': False,  # nothingOut # particles
             'tooSlow': False,  # particles
             'tooFast': False,  # particles
@@ -224,8 +225,7 @@ class Reasoner:
                                       silkie.DEFEASIBLE))
         if self.bb.context_values["poursTo"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "poursTo",
-                                                            self.bb.scene_desc["dest"],
-                                                            silkie.DEFEASIBLE))
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
         elif not self.bb.context_values["poursTo"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-poursTo",
@@ -254,8 +254,7 @@ class Reasoner:
                                                             "",
                                                             silkie.DEFEASIBLE))
         else:
-            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-goalReached",
-                                                            "",
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-goalReached", "",
                                                             silkie.DEFEASIBLE))
 
         if self.bb.context_values["sourceUpright"]:
@@ -264,6 +263,18 @@ class Reasoner:
         else:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-upright", "",
                                                             silkie.DEFEASIBLE))
+        if self.bb.context_values["isDestTilted"]:
+            if "isTilted" in self.current_facts.keys():
+                self.current_facts["isTilted"].addFact(self.bb.scene_desc["dest"], "", silkie.DEFEASIBLE)
+            else:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "isTilted", "",
+                                                                silkie.DEFEASIBLE))
+        elif not self.bb.context_values["isDestTilted"]:
+            if "-isTilted" in self.current_facts.keys():
+                self.current_facts["-isTilted"].addFact(self.bb.scene_desc["dest"], "", silkie.DEFEASIBLE)
+            else:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "-isTilted", "",
+                                                                silkie.DEFEASIBLE))
 
         if self.bb.context_values["hasOpeningWithin"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasOpeningWithin",
@@ -368,8 +379,8 @@ class SimulationSource:
     def __init__(self, bb, doDebug):
         self.util_helper = Utils()
         self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
-        self.dest_limits: tuple = ()
-        self.src_limits: tuple = ()
+        self.dest_points_to_project_to: tuple = ()
+        self.src_points_to_project_to: tuple = ()
         self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
@@ -382,6 +393,7 @@ class SimulationSource:
         self.object_flow: list = []
         self.spilled_particles: list = []
         self.object_in_dest: int = 0
+
         # object dependent parameters
 
         self.src_bounding_box_pose = Pose()
@@ -396,13 +408,16 @@ class SimulationSource:
 
         self.source_tilt_angle = 45.0
         self.source_upright_angle = 10.0
-        self.cup_orientation = 0.0
-        self.cup_direction = 1
+        self.dest_upright_angle = 0.0
+        self.src_orientation = 0.0
+        self.src_direction = 1
+        self.dest_orientation = 0.0
+        self.dest_direction = 1
         self.dest_goal_reached = False
         self.almost_goal_reached = False  # 75 % goal reached
         self.particle_increase_in_dest = False
 
-        self.normal_vector = np.array([0, 0, 1])
+        # self.normal_vector = np.array([0, 0, 1])
         self.opening_within = False
         self.direction_vector = (0, 0)  # to make the opening_within true
         self.debug = doDebug
@@ -428,27 +443,6 @@ class SimulationSource:
 
     def pose_listener(self, req):
 
-        def inside(upper, lower, val):
-            x = False
-            y = False
-            z = False
-            if upper[0] > lower[0]:
-                x = lower[0] < val.x < upper[0]
-            else:
-                x = upper[0] < val.x < lower[0]
-
-            if upper[1] > lower[1]:
-                y = lower[1] < val.y < upper[1]
-            else:
-                y = upper[1] < val.y < lower[1]
-
-            if upper[2] > lower[2]:
-                z = lower[2] < val.z < upper[2]
-            else:
-                z = upper[2] < val.z < lower[2]
-
-            return x and y and z
-
         if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                   rospy.Time(
                                       self.bb.context_values["source_pose"].header.stamp.secs,
@@ -458,8 +452,9 @@ class SimulationSource:
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
                                                self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
-            count_not_in_source = 0
+            count = 0
             count_in_dest = 0
+            count_in_src = 0
             # particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
@@ -468,9 +463,9 @@ class SimulationSource:
                     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
                     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
                     self.bb.context_values["source_pose"].pose = obj.pose
-                    self.src_limits = self.util_helper.get_limits(self.bb.scene_desc["source_dim"],
-                                                                  self.bb.context_values["source_pose"].pose,
-                                                                  ns=("sl", "su"))
+                    self.src_points_to_project_to = self.util_helper.get_points_to_project(
+                        self.bb.scene_desc["source_dim"],
+                        self.bb.context_values["source_pose"].pose)
 
                 elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
@@ -478,9 +473,9 @@ class SimulationSource:
                     self.bb.context_values["dest_pose"].header.stamp = \
                         self.bb.context_values["source_pose"].header.stamp
                     self.bb.context_values["dest_pose"].pose = obj.pose
-                    self.dest_limits = self.util_helper.get_limits(self.bb.scene_desc["dest_dim"],
-                                                                   self.bb.context_values["dest_pose"].pose,
-                                                                   ns=("dl", "du"))
+                    self.dest_points_to_project_to = self.util_helper.get_points_to_project(
+                        self.bb.scene_desc["dest_dim"],
+                        self.bb.context_values["dest_pose"].pose)
             # print(f'src pose: {self.bb.context_values["source_pose"]}',
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             # if len(self.object_flow) > 3:
@@ -489,22 +484,37 @@ class SimulationSource:
             if len(self.spilled_particles) > 5:
                 self.spilled_particles = self.spilled_particles[-5:]
 
+            src_A, src_B, src_C, src_D = self.src_points_to_project_to
+            src_ab = src_B - src_A
+            src_ac = src_C - src_A
+            src_ad = src_D - src_A
+
+            dest_A, dest_B, dest_C, dest_D = self.dest_points_to_project_to
+            dest_ab = dest_B - dest_A
+            dest_ac = dest_C - dest_A
+            dest_ad = dest_D - dest_A
             for obj in req.object_states:
                 if "ball" in obj.name:
-                    inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
-                    inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
+                    src_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - src_A
+                    dest_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - dest_A
+                    inside_src = self.util_helper.points_within_bounds_3d(src_ab, src_ac, src_ad, src_ap)
+
+                    # inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
+                    # inside_dest = inside(self.dest_limits[1], self.dest_limits[0], obj.pose.position)
 
                     # if not inside_src and not inside_dest:
                     # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                     # count += 1
-                    if not inside_src:  # ToDo : check if the particle is inside the source has a velocity
-                        count_not_in_source += 1
-                    if inside_dest:
+                    if inside_src:  # ToDo : check if the particle is inside the source has a velocity
+                        count_in_src += 1
+                    elif self.util_helper.points_within_bounds_3d(dest_ab, dest_ac, dest_ad, dest_ap):
                         count_in_dest += 1
-            print("not in source: {}, in dest: {}".format(count_not_in_source, count_in_dest))
+                    else:
+                        count += 1
+            print("in source: {}, in dest: {}".format(count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
-            current_particle_out = count_not_in_source - all_particles_not_in_src
-            self.spilled_particles.append(all_particles_not_in_src - count_in_dest)
+            current_particle_out = (count + count_in_dest) - all_particles_not_in_src
+            self.spilled_particles.append(count)
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
             elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
@@ -545,31 +555,15 @@ class SimulationSource:
 
             print(f"count spill:{count}, spilled_particles:{self.spilled_particles}, object out:{self.object_flow}")
 
-            # upright
-            # tf_wrist_cup = tf.lookupTransform(self.bb.scene_desc['source'], 'wrist_roll_link', rospy.Time())
+            # source upright
+            self.src_direction, self.src_orientation = self.util_helper.get_direction_and_orientation(
+                self.bb.scene_desc["source_dim"][2],
+                self.bb.context_values["source_pose"].pose)
 
-            point_cup_bottom = np.array([0.,
-                                         0.,
-                                         -self.bb.scene_desc["source_dim"][2] / 2,
-                                         1])
-
-            tf_map_cup = quaternion_matrix(np.array([self.bb.context_values["source_pose"].pose.orientation.x,
-                                                     self.bb.context_values["source_pose"].pose.orientation.y,
-                                                     self.bb.context_values["source_pose"].pose.orientation.z,
-                                                     self.bb.context_values["source_pose"].pose.orientation.w]))
-            tf_map_cup[:, 3] = np.array([self.bb.context_values["source_pose"].pose.position.x,
-                                         self.bb.context_values["source_pose"].pose.position.y,
-                                         self.bb.context_values["source_pose"].pose.position.z, 1])
-
-            # rotated_point
-            point_map_bottom = np.matmul(tf_map_cup, point_cup_bottom)
-
-            src_vector = np.array([self.bb.context_values["source_pose"].pose.position.x,
-                                   self.bb.context_values["source_pose"].pose.position.y,
-                                   self.bb.context_values["source_pose"].pose.position.z]) - point_map_bottom[:3]
-
-            self.cup_direction = np.dot(self.normal_vector, src_vector)
-            self.cup_orientation = np.degrees(np.arccos(self.cup_direction / np.linalg.norm(src_vector)))
+            # dest upright
+            self.dest_direction, self.dest_orientation = self.util_helper.get_direction_and_orientation(
+                self.bb.scene_desc["dest_dim"][2],
+                self.bb.context_values["dest_pose"].pose)
 
             # print("pose ", self.bb.context_values["source_pose"].pose)
             # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
@@ -601,7 +595,7 @@ class SimulationSource:
                 corner_points)
             if within:
                 self.opening_within = True
-                # print("opening within")
+            # print("opening within")
             else:
                 # dest_src
                 # print("dir vector ", dest_opening_point, src_opening_point)
@@ -651,19 +645,19 @@ class SimulationSource:
             # todo: add a value based on the objects involved
 
             self.bb.context_values["near"] = True
-            # hashed = hash((self.bb.source, "near", self.bb.dest))
-            # if hashed not in self.bb.old_facts:
-            #     self.bb.old_facts.add(hashed)
-            # near_pred = "near_"+self.bb.source+"_"+self.bb.dest
-            # if near_pred not in self.bb.current_facts:
-            #     self.bb.current_facts.append(near_pred)
+        # hashed = hash((self.bb.source, "near", self.bb.dest))
+        # if hashed not in self.bb.old_facts:
+        #     self.bb.old_facts.add(hashed)
+        # near_pred = "near_"+self.bb.source+"_"+self.bb.dest
+        # if near_pred not in self.bb.current_facts:
+        #     self.bb.current_facts.append(near_pred)
 
-            # print("near true")
+        # print("near true")
         else:
             # self.bb.current_facts.update(self.bb.create_facts(self.bb.source, "-near", self.bb.dest,
             #                                                   silkie.DEFEASIBLE))
             self.bb.context_values["near"] = False
-            # print("near false")
+        # print("near false")
 
         # spilling
         if self.spilling:
@@ -678,16 +672,22 @@ class SimulationSource:
             self.bb.context_values["isSpilling"] = False
 
         # tilted
-        if self.cup_orientation >= self.source_tilt_angle:
+        if self.src_orientation >= self.source_tilt_angle:
             self.bb.context_values['isTilted'] = True
         else:
             self.bb.context_values['isTilted'] = False
 
         # upright
-        if self.cup_direction > 0 and self.cup_orientation <= self.source_upright_angle:
+        if self.src_direction > 0 and self.src_orientation <= self.source_upright_angle:
             self.bb.context_values["sourceUpright"] = True
         else:
             self.bb.context_values["sourceUpright"] = False
+
+        # dest upright
+        if not (self.dest_direction > 0 and np.isclose(self.dest_orientation, self.dest_upright_angle, atol=0.5)):
+            self.bb.context_values["isDestTilted"] = True
+        else:
+            self.bb.context_values["isDestTilted"] = False
 
         # poursTo
         if len(self.object_flow) and self.bb.context_values["isTilted"] and self.object_flow[-1] > 0:

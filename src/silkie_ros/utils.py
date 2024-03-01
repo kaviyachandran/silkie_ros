@@ -24,7 +24,7 @@ class Utils(object):
     def closest_point_on_rectangle_to_point(self, container_pose: Pose, container_dim: tuple, pot_P_obj: Point) -> (
             np.array, float):
         # rospy.init_node('test_utils')
-        A, B, C, _ = self._get_corner_points(container_pose.orientation, container_dim)
+        A, B, C, _ = self._get_corner_points(container_pose.orientation, container_dim, where="top")
         P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
         ab = B - A
         ac = C - A
@@ -93,12 +93,12 @@ class Utils(object):
         src_D = np.zeros(3)
         # This is computed with the assumption that the length of the obj is along x-axis, depth / breadth along y-axis
         if corner:
-            src_A, src_B, src_C, src_D = self._get_corner_points(src_pose.orientation, (src_dim[0] * 0.75,
-                                                                                        src_dim[1] * 0.75,
-                                                                                        src_dim[2]))
+            src_A, src_B, src_C, src_D = self._get_corner_points(src_pose.orientation, (src_dim[0] * 0.85,
+                                                                                        src_dim[1] * 0.85,
+                                                                                        src_dim[2]), where="top")
         elif not corner:
-            src_A, src_B, src_C, src_D = self._get_edge_points(src_pose.orientation, (src_dim[0] * 0.75,
-                                                                                      src_dim[1] * 0.75,
+            src_A, src_B, src_C, src_D = self._get_edge_points(src_pose.orientation, (src_dim[0] * 0.85,
+                                                                                      src_dim[1] * 0.85,
                                                                                       src_dim[2]))
 
         # src_x = src_dim[0] / 2 * .75
@@ -281,13 +281,23 @@ class Utils(object):
 
         return A, B
 
-    def _get_corner_points(self, obj_pose: Quaternion, obj_dim):
+    def _get_corner_points(self, obj_pose: Quaternion, obj_dim, where: str = "top"):
         # top lies in XY plane. points in local frame
+        A = np.zeros(3)
+        B = np.zeros(3)
+        C = np.zeros(3)
+        D = np.zeros(3)
         # A is bottom left
-        A = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
-        B = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
-        C = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
-        D = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+        if where == "top":
+            A = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+            B = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, obj_dim[2] / 2])
+            C = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
+            D = np.array([obj_dim[0] / 2, obj_dim[1] / 2, obj_dim[2] / 2])
+        elif where == "bottom":
+            A = np.array([-obj_dim[0] / 2, -obj_dim[1] / 2, -obj_dim[2] / 2])
+            B = np.array([obj_dim[0] / 2, -obj_dim[1] / 2, -obj_dim[2] / 2])
+            C = np.array([-obj_dim[0] / 2, obj_dim[1] / 2, -obj_dim[2] / 2])
+            D = np.array([obj_dim[0] / 2, obj_dim[1] / 2, -obj_dim[2] / 2])
 
         rot_matrix = quaternion_matrix(np.array([obj_pose.x, obj_pose.y, obj_pose.z, obj_pose.w]))
 
@@ -318,29 +328,33 @@ class Utils(object):
         # print((np.dot(ap, ab)), (np.dot(ab, ab)), (np.dot(ap, ac)), (np.dot(ac, ac)))
         return 0 < np.dot(ap, ab) < np.dot(ab, ab) and 0 < np.dot(ap, ac) < np.dot(ac, ac)
 
-    def get_limits(self, dim: tuple, obj_pose: Pose, ns=None) -> tuple:
-        half_height = dim[2] / 2
-        half_breadth = dim[1] / 2
-        half_length = dim[0] / 2
+    def points_within_bounds_3d(self, ab, ac, ad, ap) -> bool:
+        return self.point_within_bounds(ab, ac, ap) and 0 < np.dot(ap, ad) < np.dot(ad, ad)
 
-        obj_Point_ll = (- half_length,  - half_breadth, - half_height)
-        obj_Point_ul = (+ half_length,  + half_breadth, + half_height)
-
-        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y, obj_pose.orientation.z,
-                                                 obj_pose.orientation.w]))
-        ll = self.rotate_point(obj_Point_ll, rot_matrix) + np.array([obj_pose.position.x, obj_pose.position.y,
-                                                                     obj_pose.position.z])
-        ul = self.rotate_point(obj_Point_ul, rot_matrix) + np.array([obj_pose.position.x, obj_pose.position.y,
-                                                                     obj_pose.position.z])
-
-        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=ns[0],
+    def get_points_to_project(self, dimension: tuple, obj_pose: Pose) -> tuple:
+        bottom_points = self._get_corner_points(obj_pose.orientation, dimension, where="bottom")
+        z = bottom_points[0][2] + dimension[2]
+        D = np.array([bottom_points[0][0], bottom_points[0][1], z])
+        D = self.rotate_point(D, quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y,
+                                                             obj_pose.orientation.z, obj_pose.orientation.w]))) + \
+            np.array([obj_pose.position.x, obj_pose.position.y, obj_pose.position.z])
+        bottom_points = bottom_points + np.array([obj_pose.position.x, obj_pose.position.y, obj_pose.position.z])
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns='A',
                                                                       obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
-                                                                      position=ll, size=(0.03, 0.03, 0.03)))
-        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=ns[1],
+                                                                      position=bottom_points[0],
+                                                                      size=(0.03, 0.03, 0.03)))
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns='B',
                                                                       obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
-                                                                      position=ul, size=(0.03, 0.03, 0.03)))
-
-        return ll, ul
+                                                                      position=bottom_points[1],
+                                                                      size=(0.03, 0.03, 0.03)))
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns='C',
+                                                                      obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
+                                                                      position=bottom_points[2],
+                                                                      size=(0.03, 0.03, 0.03)))
+        self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns='D',
+                                                                      obj_type=2, action=0, color=(1, 0, 0), lifetime=0,
+                                                                      position=D, size=(0.03, 0.03, 0.03)))
+        return bottom_points[0], bottom_points[1], bottom_points[2], D
 
     def _create_vis_marker(self, parent_frame, ns, obj_type, action, color, lifetime, position, size,
                            orientation=Quaternion(0, 0, 0, 1)) -> Marker:
@@ -386,6 +400,34 @@ class Utils(object):
                                                                                                  pose[1][3]),
                                                                           size=(0.1, 0.1, 0.05)))
 
+    def get_direction_and_orientation(self, height: float, obj_pose: Pose):
+        normal = np.array([0, 0, 1])
+        point_cup_bottom = np.array([0., 0., -height / 2])
+
+        rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x,
+                                                 obj_pose.orientation.y,
+                                                 obj_pose.orientation.z,
+                                                 obj_pose.orientation.w]))
+
+        # rotated_point
+        point_map_bottom = self.rotate_point(point_cup_bottom, rot_matrix) + np.array([obj_pose.position.x,
+                                                                                       obj_pose.position.y,
+                                                                                       obj_pose.position.z])
+
+        ob = np.array([obj_pose.position.x, obj_pose.position.y, obj_pose.position.z]) - point_map_bottom
+        direction = np.dot(normal, ob)
+        orientation = np.degrees(np.arccos(direction / np.linalg.norm(ob)))
+        return direction, orientation
+
+    def test_point_within_bounds(self, points, p):
+        A, B, C, D = points
+        ab = B - A
+        ac = C - A
+        ad = D - A
+        ap = p - A
+        is_within = self.points_within_bounds_3d(ab, ac, ad, ap)
+        print(is_within)
+
     def test_alignment_to_get_direction(self, cont_pose: tuple):
         # Note: You might have to stick with the corner points for objects with edges
         # ToDO : Transform everything to dest frame
@@ -398,7 +440,7 @@ class Utils(object):
         # l, d, h = dim[0]/2, dim[1] / 2, dim[2]/2
 
         q = Quaternion(cont_pose[1][0], cont_pose[1][1], cont_pose[1][2], cont_pose[1][3])
-        a, b, c, d = self._get_corner_points(obj_pose=q, obj_dim=(dim[0] * 0.8, dim[1] * 0.8, dim[2]))
+        a, b, c, d = self._get_corner_points(obj_pose=q, obj_dim=(dim[0] * 0.8, dim[1] * 0.8, dim[2]), where="top")
 
         a = a + cont_pose[0]
         b = b + cont_pose[0]
@@ -446,12 +488,10 @@ class Utils(object):
             self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
                                     position=d, size=(0.01, 0.01, 0.01)))
 
-
 # if __name__ == '__main__':
 #     rospy.init_node('test_node')
 #     u = Utils()
 #     pub = rospy.Publisher('/test_marker', MarkerArray, queue_size=1, latch=True)
-#
 #
 #     sp = Pose()
 #
@@ -478,18 +518,21 @@ class Utils(object):
 #     dp.orientation.z = poses[1][1][2]
 #     dp.orientation.w = poses[1][1][3]
 #
-#     u.get_limits(dim, sp, ('sl', 'su'))
-#     u.get_limits(dim, dp, ('dl', 'du'))
-# #     within = u.is_source_opening_within(sp, dim, dp, dim, corner=False)
-# #     print("openinggg ", within)
-# #     # opening within
-# #
-# #     #
+#     # u.get_limits(dim, sp, ('sl', 'su'))
+#     # u.get_limits(dim, dp, ('dl', 'du'))
+#     #     within = u.is_source_opening_within(sp, dim, dp, dim, corner=False)
+#     #     print("openinggg ", within)
+#     #     # opening within
+#     #
+#     test_points = u.get_points_to_project(dim, sp)
+#     test = u.get_transform('map', 'p')
 #     u.create_obj_test_alignment(container_obj, poses)
 #     ab = u.is_above(sp, 0.05, dp, 0.05, "free_cup")
+#     u.test_point_within_bounds(test_points, test[0])
 #     print("above ", (ab))
+#     #     # u.test_alignment_to_get_direction(poses[1])
 #     vis_array = u.get_test_visualization_marker_array()
-# #     # # print(vis_array)
+#
 #     pub.publish(vis_array)
 #     rospy.sleep(1.0)
 #     rospy.spin()
