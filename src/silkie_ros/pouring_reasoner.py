@@ -21,6 +21,7 @@ import rospy
 import visualization_msgs
 from geometry_msgs.msg import PoseStamped, Point, Pose
 from mujoco_msgs.msg import ObjectStateArray
+from mujoco_msgs.msg import ContactInfo
 from std_msgs.msg import String
 import tf
 from tf.transformations import euler_from_quaternion, quaternion_matrix
@@ -33,8 +34,8 @@ class Blackboard(object):
     def __init__(self):
         self.experts = []
         self.scene_desc = {
-            "source": "sync_cup2",
-            "dest": "sync_bowl",
+            "source": "free_cup2",
+            "dest": "free_cup",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
@@ -76,7 +77,9 @@ class Blackboard(object):
             # - (-1, 0) ---> Left. move right. in +x direction
             "srcAbove": False,
             "locationOfSourceRelativeToDestination": [],
-            "srcCornerSpoutRegion": ""
+            "srcCornerSpoutRegion": "",
+            "collides": False,
+            "contact_point": Point()
         }
         dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
         if dimension_data:
@@ -283,22 +286,29 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasOpeningWithin",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
-            for direction in self.bb.context_values["locationOfSourceRelativeToDestination"]:
-                # print("direction ", direction)
-                if direction == "inFront":
-                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "inFrontOf",
-                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
-                elif direction == "behind":
-                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "behind",
-                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
-                if direction == "left":
-                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "leftOf",
-                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
-                elif direction == "right":
-                    self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "rightOf",
-                                                                    self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+        if self.bb.context_values["collides"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contact",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        elif not self.bb.context_values["collides"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contact",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
-            self.bb.context_values["locationOfSourceRelativeToDestination"] = []
+        for direction in self.bb.context_values["locationOfSourceRelativeToDestination"]:
+            # print("direction ", direction)
+            if direction == "inFront":
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "inFrontOf",
+                                                                self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+            elif direction == "behind":
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "behind",
+                                                                self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+            if direction == "left":
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "leftOf",
+                                                                self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+            elif direction == "right":
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "rightOf",
+                                                                self.bb.scene_desc["source"], silkie.DEFEASIBLE))
+
+        self.bb.context_values["locationOfSourceRelativeToDestination"] = []
 
         if self.bb.context_values["isSpilled"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "isSpilled", "",
@@ -384,6 +394,7 @@ class SimulationSource:
         self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener)
         # self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
         self.sim_queries: list = []
         #  variables to update context values
@@ -440,6 +451,25 @@ class SimulationSource:
     #             dest_set = True
     #     if src_set and dest_set:
     #         self.bb_values_set = True
+
+    def contact_listener(self, data: ContactInfo):
+        print("in contact listener")
+        for contact in data.contact_states:
+            if (contact.contact_body1 == self.bb.scene_desc["source"] and
+                contact.contact_body2 == self.bb.scene_desc["dest"]) or \
+                (contact.contact_body1 == self.bb.scene_desc["dest"] and
+                 contact.contact_body2 == self.bb.scene_desc["source"]):
+                print("collidessssssssss")
+                self.bb.context_values["collides"] = True
+                self.bb.context_values["contact_point"] = [contact.contact_point.x, contact.contact_point.y,
+                                                           contact.contact_point.z]
+                self.direction_vector = self.util_helper.get_direction_vector(np.array(
+                    [self.bb.context_values["dest_pose"].pose.position.x,
+                     self.bb.context_values["dest_pose"].pose.position.y]),
+                    self.bb.context_values["contact_point"][0:2])
+                break
+            else:
+                self.bb.context_values["collides"] = False
 
     def pose_listener(self, req):
 
@@ -600,10 +630,9 @@ class SimulationSource:
             else:
                 # dest_src
                 # print("dir vector ", dest_opening_point, src_opening_point)
-                v_src_dest = np.array(
+                self.direction_vector = self.util_helper.get_direction_vector(np.array(
                     [self.bb.context_values["dest_pose"].pose.position.x,
-                     self.bb.context_values["dest_pose"].pose.position.y]) - closest_point[0:2]
-                self.direction_vector = v_src_dest / np.linalg.norm(v_src_dest)
+                     self.bb.context_values["dest_pose"].pose.position.y]), closest_point[0:2])
                 self.opening_within = False
 
             if self.bb.scene_desc["sourceHasEdges"]:
@@ -640,6 +669,8 @@ class SimulationSource:
     def publish_test_markers(self):
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
+
+
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -748,21 +779,16 @@ class SimulationSource:
             self.bb.context_values["hasOpeningWithin"] = True
         else:
             self.bb.context_values["hasOpeningWithin"] = False
-            coordinate = np.argsort(self.direction_vector)[::-1]  # descending order
+            if not self.bb.context_values["collides"]:
+                self.bb.context_values["locationOfSourceRelativeToDestination"] = \
+                    self.util_helper.get_direction_relative_to_dest(self.direction_vector)
 
-            for index in coordinate:
-                if index == 0:  # Along x-axis w.r.t map
-                    if self.direction_vector[index] > 0:
-                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("inFront")
-                    elif self.direction_vector[index] < 0:
-                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("behind")
-                else:  # Along y-axis w.r.t map
-                    if self.direction_vector[index] > 0:
-                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("left")
-                    elif self.direction_vector[index] < 0:
-                        self.bb.context_values["locationOfSourceRelativeToDestination"].append("right")
-            print(f'direction: {self.direction_vector}, '
-                  f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
+        if self.bb.context_values["collides"]:
+            self.bb.context_values["locationOfSourceRelativeToDestination"] = \
+                self.util_helper.get_direction_relative_to_dest(self.direction_vector)
+
+        print(f'direction: {self.direction_vector}, '
+            f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
 
     def query(self, queries: list):
         # Just compute the queries here. the variables you use should come from context values which is already set

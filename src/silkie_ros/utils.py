@@ -419,6 +419,27 @@ class Utils(object):
         orientation = np.degrees(np.arccos(direction / np.linalg.norm(ob)))
         return direction, orientation
 
+    def get_direction_vector(self, dest_point: np.array, src_point: np.array):
+        v_src_dest = dest_point - src_point
+        return v_src_dest / np.linalg.norm(v_src_dest)
+
+    def get_direction_relative_to_dest(self, direction_vector):
+        coordinate = np.argsort(direction_vector)[::-1]  # descending order
+        location = []
+        for index in coordinate:
+            if index == 0:  # Along x-axis w.r.t map
+                if direction_vector[index] > 0:
+                    location.append("inFront")
+                elif direction_vector[index] < 0:
+                    location.append("behind")
+            else:  # Along y-axis w.r.t map
+                if direction_vector[index] > 0:
+                    location.append("left")
+                elif direction_vector[index] < 0:
+                    location.append("right")
+
+        return location
+
     def test_point_within_bounds(self, points, p):
         A, B, C, D = points
         ab = B - A
