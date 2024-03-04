@@ -473,8 +473,8 @@ class SimulationSource:
             # if len(self.object_flow) > 3:
             #     self.object_flow = self.object_flow[-3:]
 
-            if len(self.spilled_particles) > 5:
-                self.spilled_particles = self.spilled_particles[-5:]
+            if len(self.spilled_particles) > 10:
+                self.spilled_particles = self.spilled_particles[-10:]
 
             src_A, src_B, src_C, src_D = self.src_points_to_project_to
             src_ab = src_B - src_A
@@ -535,7 +535,8 @@ class SimulationSource:
             # self.bb.context_values["dest_pose"].pose.position.z))
             # print("dist {}".format(self.distance))
             if len(self.spilled_particles) >= 2:
-                count = self.spilled_particles[-1] - self.spilled_particles[-2]
+                val = self.spilled_particles[-1] - self.spilled_particles[-2]
+                count = val if val > 0 else 0
             else:
                 count = self.spilled_particles[-1]
             if count > 0.20 * self.bb.scene_desc["total_particles"]:
@@ -655,7 +656,7 @@ class SimulationSource:
             self.bb.context_values["isSpilled"] = False
 
         # spilling now
-        if np.count_nonzero(np.diff(self.spilled_particles[-5:])) >= 3:
+        if np.count_nonzero(np.diff(self.spilled_particles[-10:]) > 0) >= 5:
             self.bb.context_values["isSpilling"] = True
         else:
             self.bb.context_values["isSpilling"] = False
