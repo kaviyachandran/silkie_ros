@@ -109,12 +109,12 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
 
 # At the moment, there can be only one conclusion so splitting the motion command in different rules
-23a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
-23b: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
-23c: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
-23d: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
-23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
-23e: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), above(?src, ?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
+23a: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
+23b: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
+23c: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
+23d: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
+#23e: SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
+#23f: SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
 
 # For the source container to move above the destination container
 23f: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -above(?src, ?dest), -goalReached(?dest)  => P_moveAbove(?src, ?dest)
@@ -156,10 +156,17 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 27b: SourceRole(?s), DestinationRole(?d),  Solid(?o), supports(?s, ?o), -movesTowards(?o, ?d), -goalReached(?d) => P_pushTowards(?o, ?d)
 
 # collision
-28: SourceRole(?s), DestinationRole(?d), contact(?s, ?d) => -canPourTo(?s, ?d)
+#28: SourceRole(?s), DestinationRole(?d), contact(?s, ?d) => -canPourTo(?s, ?d)
 28a: contact(?a, ?b) => contact(?b, ?a)
-28b: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), behind(?dest, ?src) => P_moveForward(?src)
-28c: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveBehind(?src)
-28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
-28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
+#28b: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), behind(?dest, ?src) => P_moveForward(?src)
+#28c: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveBack(?src)
+#28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
+#28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
+28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest) => P_moveUp(?src)
 
+# spilling
+29: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), -undershoot(?l) => overshoot(?l)
+29b: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), behind(?dest, ?src) => P_moveForward(?src)
+29c: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), inFrontOf(?dest, ?src)  => P_moveBack(?src)
+29d: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), leftOf(?dest, ?src)  => P_moveRight(?src)
+29e: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), rightOf(?dest, ?src)  => P_moveLeft(?src)

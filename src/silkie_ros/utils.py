@@ -440,6 +440,14 @@ class Utils(object):
 
         return location
 
+    def get_particles_in_src_spilling_boundary(self, src_position: np.array, radius: float, particle_poses: list) \
+            -> int:
+        num_in_boundary = 0
+        for particle in particle_poses:
+            if self.distance(src_position, particle[0:2]) < radius:
+                num_in_boundary += 1
+        return num_in_boundary
+
     def test_point_within_bounds(self, points, p):
         A, B, C, D = points
         ab = B - A

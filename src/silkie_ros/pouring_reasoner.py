@@ -34,16 +34,16 @@ class Blackboard(object):
     def __init__(self):
         self.experts = []
         self.scene_desc = {
-            "source": "free_cup2",
-            "dest": "free_cup",
+            "source": "free_cup",
+            "dest": "free_cup2",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 50,
+            "total_particles": 100,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 30,
+            "dest_goal": 60,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
@@ -71,6 +71,8 @@ class Blackboard(object):
             "almostGoalReached": False,
             "srcCornerAligned": False,
             "rotationDirection": "",
+            "overshoot": False,
+            "undershoot": False,
             # - (0, -1) ---> Behind. move upwards. in +y direction
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
@@ -79,7 +81,6 @@ class Blackboard(object):
             "locationOfSourceRelativeToDestination": [],
             "srcCornerSpoutRegion": "",
             "collides": False,
-            "contact_point": Point()
         }
         dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
         if dimension_data:
@@ -365,6 +366,12 @@ class Reasoner:
         elif not self.bb.context_values["srcAbove"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-above",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        if self.bb.context_values["undershoot"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "undershoot", "",
+                                                            silkie.DEFEASIBLE))
+        else:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-undershoot", "",
+                                                            silkie.DEFEASIBLE))
 
         return
 
@@ -387,6 +394,7 @@ class Reasoner:
 class SimulationSource:
 
     def __init__(self, bb, doDebug):
+        self.spilled_particle_poses: list = []
         self.util_helper = Utils()
         self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
         self.dest_points_to_project_to: tuple = ()
@@ -394,12 +402,13 @@ class SimulationSource:
         self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
-        self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener)
+        self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener, queue_size=1)
         # self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
         self.sim_queries: list = []
         #  variables to update context values
         self.distance: float = 0.0
         self.spilling: bool = False
+        self.undershoot: bool = False
         # self.src_orientation: tuple = (0, 0, 0)
         self.object_flow: list = []
         self.spilled_particles: list = []
@@ -436,6 +445,8 @@ class SimulationSource:
         self.corner_region = ""
         self.rot_dir = ""
         self.is_src_above = False
+        self.collides = False
+        self.contact_point = []
 
     # def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
     #     src_set = False
@@ -454,22 +465,20 @@ class SimulationSource:
 
     def contact_listener(self, data: ContactInfo):
         print("in contact listener")
+        self.collides = False
         for contact in data.contact_states:
             if (contact.contact_body1 == self.bb.scene_desc["source"] and
                 contact.contact_body2 == self.bb.scene_desc["dest"]) or \
-                (contact.contact_body1 == self.bb.scene_desc["dest"] and
-                 contact.contact_body2 == self.bb.scene_desc["source"]):
+                    (contact.contact_body1 == self.bb.scene_desc["dest"] and
+                     contact.contact_body2 == self.bb.scene_desc["source"]):
                 print("collidessssssssss")
-                self.bb.context_values["collides"] = True
-                self.bb.context_values["contact_point"] = [contact.contact_point.x, contact.contact_point.y,
-                                                           contact.contact_point.z]
+                self.collides = True
+                self.contact_point = [contact.contact_point.x, contact.contact_point.y, contact.contact_point.z]
                 self.direction_vector = self.util_helper.get_direction_vector(np.array(
                     [self.bb.context_values["dest_pose"].pose.position.x,
                      self.bb.context_values["dest_pose"].pose.position.y]),
-                    self.bb.context_values["contact_point"][0:2])
+                     self.contact_point[0:2])
                 break
-            else:
-                self.bb.context_values["collides"] = False
 
     def pose_listener(self, req):
 
@@ -482,7 +491,7 @@ class SimulationSource:
             print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
                                     rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
                                                self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
-            count = 0
+            spill_count = 0
             count_in_dest = 0
             count_in_src = 0
             # particle_positions = []
@@ -510,7 +519,7 @@ class SimulationSource:
             #     f'dest pose: {self.bb.context_values["dest_pose"]}')
             # if len(self.object_flow) > 3:
             #     self.object_flow = self.object_flow[-3:]
-
+            self.spilled_particle_poses = []
             if len(self.spilled_particles) > 10:
                 self.spilled_particles = self.spilled_particles[-10:]
 
@@ -540,14 +549,16 @@ class SimulationSource:
                     elif self.util_helper.points_within_bounds_3d(dest_ab, dest_ac, dest_ad, dest_ap):
                         count_in_dest += 1
                     else:
-                        count += 1
+                        spill_count += 1
+                        self.spilled_particle_poses.append([obj.pose.position.x, obj.pose.position.y,
+                                                            obj.pose.position.z])
             print("in source: {}, in dest: {}".format(count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
-            current_particle_out = (count + count_in_dest) - all_particles_not_in_src
-            self.spilled_particles.append(count)
+            current_particle_out = (spill_count + count_in_dest) - all_particles_not_in_src
+            self.spilled_particles.append(spill_count)
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
-            elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
+            elif count_in_dest >= 0.75 * self.bb.scene_desc["dest_goal"]:
                 self.almost_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
@@ -574,17 +585,17 @@ class SimulationSource:
             # print("dist {}".format(self.distance))
             if len(self.spilled_particles) >= 2:
                 val = self.spilled_particles[-1] - self.spilled_particles[-2]
-                count = val if val > 0 else 0
+                spill_count = val if val > 0 else 0
             else:
-                count = self.spilled_particles[-1]
-            if count > 0.20 * self.bb.scene_desc["total_particles"]:
+                spill_count = self.spilled_particles[-1]
+            if spill_count > 0.20 * self.bb.scene_desc["total_particles"]:
                 self.spilling = True
-                print("ooopss spilled.... ", count)
+                print("ooopss spilled.... ", spill_count)
             else:
                 self.spilling = False
-                print("no spilling ", count)
+                print("no spilling ", spill_count)
 
-            print(f"count spill:{count}, spilled_particles:{self.spilled_particles}, object out:{self.object_flow}")
+            print(f"count spill:{spill_count}, spilled_particles:{self.spilled_particles}, object out:{self.object_flow}")
 
             # source upright
             self.src_direction, self.src_orientation = self.util_helper.get_direction_and_orientation(
@@ -663,14 +674,24 @@ class SimulationSource:
                 self.corner_region = None
                 self.rot_dir = None
 
+            # detect undershooting
+            num_of_particles_in_src_boundary = self.util_helper.get_particles_in_src_spilling_boundary(
+                np.array([self.bb.context_values["source_pose"].pose.position.x,
+                          self.bb.context_values["source_pose"].pose.position.y]),
+                radius=self.bb.scene_desc["source_dim"][2]*1.5,
+                particle_poses=self.spilled_particle_poses)
+
+            if spill_count and num_of_particles_in_src_boundary >= spill_count:
+                self.undershoot = True
+            else:
+                self.undershoot = False
+
         if self.debug:
             self.publish_test_markers()
 
     def publish_test_markers(self):
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
-
-
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -779,17 +800,28 @@ class SimulationSource:
             self.bb.context_values["hasOpeningWithin"] = True
         else:
             self.bb.context_values["hasOpeningWithin"] = False
-            if not self.bb.context_values["collides"]:
-                self.bb.context_values["locationOfSourceRelativeToDestination"] = \
-                    self.util_helper.get_direction_relative_to_dest(self.direction_vector)
+            self.bb.context_values["locationOfSourceRelativeToDestination"] = \
+                self.util_helper.get_direction_relative_to_dest(self.direction_vector)
 
-        if self.bb.context_values["collides"]:
+        if self.collides:
+            self.bb.context_values["collides"] = True
+        else:
+            self.bb.context_values["collides"] = False
+
+        if self.bb.context_values["collides"] and self.bb.context_values["hasOpeningWithin"]:
             self.bb.context_values["locationOfSourceRelativeToDestination"] = \
                 self.util_helper.get_direction_relative_to_dest(self.direction_vector)
 
         print(f'direction: {self.direction_vector}, '
-            f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
+              f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
 
+        # undershoot
+        if self.undershoot:
+            self.bb.context_values["undershoot"] = True
+        else:
+            self.bb.context_values["undershoot"] = False
+
+        self.collides = False
     def query(self, queries: list):
         # Just compute the queries here. the variables you use should come from context values which is already set
         # moves up - increasing particles by time
@@ -797,9 +829,9 @@ class SimulationSource:
         for query in queries:
             if query == "movesUpIn":
                 self.bb.context_values[query] = self.particle_increase_in_dest
-            elif query == "almostGoalReached":
+            if query == "almostGoalReached":
                 self.bb.context_values[query] = self.almost_goal_reached
-            elif query == "poursTo":
+            if query == "poursTo":
                 self.bb.context_values[query] = self.bb.context_values[query]
 
 
