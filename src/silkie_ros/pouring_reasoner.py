@@ -73,6 +73,7 @@ class Blackboard(object):
             "rotationDirection": "",
             "overshoot": False,
             "undershoot": False,
+            "src_empty": False,
             # - (0, -1) ---> Behind. move upwards. in +y direction
             # - (0, 1) ---> FrontOf. move downwards. in -y direction
             # - (1, 0) ---> Right. move left. in -x direction
@@ -82,12 +83,12 @@ class Blackboard(object):
             "srcCornerSpoutRegion": "",
             "collides": False,
         }
-        dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
-        if dimension_data:
-            self.set_dimension_values(dimension_data)
-        else:
-            self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
-            self.scene_desc["dest_dim"] = (0.2, 0.2, 0.18)
+        # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
+        # if dimension_data:
+        #     self.set_dimension_values(dimension_data)
+        # else:
+        self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
+        self.scene_desc["dest_dim"] = (0.07, 0.07, 0.18)
 
         self.corner_regions = {"1,1": "top_right", "1,-1": "top_left", "-1,1": "bottom_right", "-1,-1": "bottom_left"}
 
@@ -205,8 +206,8 @@ class Reasoner:
         facts[self.bb.scene_desc["dest_type"]].addFact(self.bb.scene_desc["dest"], "", silkie.DEFEASIBLE)
         facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"],
                                            self.bb.scene_desc["poured_substance_type"], "", silkie.DEFEASIBLE))
-        facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
-                                           self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
+        # facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+        #                                    self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["dest"], "DestinationRole", "", silkie.DEFEASIBLE))
         if self.bb.scene_desc["sourceHasEdges"]:
@@ -373,6 +374,16 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "-undershoot", "",
                                                             silkie.DEFEASIBLE))
 
+        if self.bb.context_values["sourceEmpty"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
+                                                            self.bb.scene_desc["poured_substance"],
+                                                            silkie.DEFEASIBLE))
+        else:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                                            self.bb.scene_desc["poured_substance"],
+                                                            silkie.DEFEASIBLE))
+
+
         return
 
     @staticmethod
@@ -447,6 +458,7 @@ class SimulationSource:
         self.is_src_above = False
         self.collides = False
         self.contact_point = []
+        self.count_in_src = 0
 
     # def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
     #     src_set = False
@@ -464,7 +476,7 @@ class SimulationSource:
     #         self.bb_values_set = True
 
     def contact_listener(self, data: ContactInfo):
-        print("in contact listener")
+        # print("in contact listener")
         self.collides = False
         for contact in data.contact_states:
             if (contact.contact_body1 == self.bb.scene_desc["source"] and
@@ -493,7 +505,7 @@ class SimulationSource:
                                                self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
             spill_count = 0
             count_in_dest = 0
-            count_in_src = 0
+            self.count_in_src = 0
             # particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
@@ -545,14 +557,14 @@ class SimulationSource:
                     # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                     # count += 1
                     if inside_src:  # ToDo : check if the particle is inside the source has a velocity
-                        count_in_src += 1
+                        self.count_in_src += 1
                     elif self.util_helper.points_within_bounds_3d(dest_ab, dest_ac, dest_ad, dest_ap):
                         count_in_dest += 1
                     else:
                         spill_count += 1
                         self.spilled_particle_poses.append([obj.pose.position.x, obj.pose.position.y,
                                                             obj.pose.position.z])
-            print("in source: {}, in dest: {}".format(count_in_src, count_in_dest))
+            print("in source: {}, in dest: {}".format(self.count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
             current_particle_out = (spill_count + count_in_dest) - all_particles_not_in_src
             self.spilled_particles.append(spill_count)
@@ -614,7 +626,7 @@ class SimulationSource:
 
             # compute above (in dest frame)
             if self.util_helper.is_above(self.bb.context_values["source_pose"].pose,
-                                         self.bb.scene_desc["source_dim"][2],
+                                         0.75*self.bb.scene_desc["source_dim"][2],
                                          self.bb.context_values["dest_pose"].pose,
                                          self.bb.scene_desc["dest_dim"][2],
                                          self.bb.scene_desc["dest"]):
@@ -681,7 +693,9 @@ class SimulationSource:
                 radius=self.bb.scene_desc["source_dim"][2]*1.5,
                 particle_poses=self.spilled_particle_poses)
 
-            if spill_count and num_of_particles_in_src_boundary >= spill_count:
+            print(f'particles in src boundary :{num_of_particles_in_src_boundary}')
+
+            if spill_count and num_of_particles_in_src_boundary >= 0.2*self.spilled_particles[-1]:
                 self.undershoot = True
             else:
                 self.undershoot = False
@@ -711,6 +725,11 @@ class SimulationSource:
             #                                                   silkie.DEFEASIBLE))
             self.bb.context_values["near"] = False
         # print("near false")
+
+        if self.count_in_src == 0:
+            self.bb.context_values["sourceEmpty"] = True
+        else:
+            self.bb.context_values["sourceEmpty"] = False
 
         # spilling
         if self.spilling:

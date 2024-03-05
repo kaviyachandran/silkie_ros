@@ -232,7 +232,7 @@ class Utils(object):
                                                     src_pose.orientation.z, src_pose.orientation.w])))
         map_Point_src_bottom = rotated_src_bottom_point + np.array([src_pose.position.x, src_pose.position.y,
                                                                     src_pose.position.z])
-        dest_top_point = np.array([0, 0, dest_pose.position.z + dest_h / 2])
+        dest_top_point = np.array([0, 0, dest_h / 2])
         map_Pose_dest = self._get_transform_matrix_from_pose(dest_pose)
         dest_Pose_map = np.linalg.inv(map_Pose_dest)
         # TODO : Use the wrapper in giskard
@@ -240,9 +240,9 @@ class Utils(object):
         dest_Point_src_bottom = np.dot(dest_Pose_map, np.hstack((map_Point_src_bottom, [1])).reshape(4, 1))
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame=dest_name, ns='src_bottom_pt', obj_type=2, action=0, color=(1, 1, 0),
-                                    lifetime=0, position=dest_Point_src_bottom[:3], size=(0.01, 0.01, 0.01)))
-        print("points  " , dest_Point_src_bottom[2], dest_top_point[2])
-        return bool(dest_Point_src_bottom[2] > dest_top_point[2])
+                                    lifetime=0, position=dest_Point_src_bottom[:3], size=(0.03, 0.03, 0.03)))
+        print("points  ", dest_Point_src_bottom[2][0], dest_top_point[2])
+        return bool(dest_Point_src_bottom[2][0] > dest_top_point[2])
 
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
@@ -387,7 +387,7 @@ class Utils(object):
         (pos, quat) = self.tf_listener.lookupTransform(reference_frame, target_frame, rospy.Time())
         return pos, quat
 
-    def create_obj_test_alignment(self, obj_names, obj_poses: list):
+    def create_obj_test_alignment(self, obj_names, obj_poses: list, dim: tuple):
         for ind, pose in enumerate(obj_poses):
             self.test_marker_array.markers.append(self._create_vis_marker(parent_frame='map', ns=obj_names[ind],
                                                                           obj_type=1, action=0, color=(0, 1, 1),
@@ -398,7 +398,7 @@ class Utils(object):
                                                                                                  pose[1][1],
                                                                                                  pose[1][2],
                                                                                                  pose[1][3]),
-                                                                          size=(0.1, 0.1, 0.05)))
+                                                                          size=dim))
 
     def get_direction_and_orientation(self, height: float, obj_pose: Pose):
         normal = np.array([0, 0, 1])
@@ -524,7 +524,7 @@ class Utils(object):
 #
 #     sp = Pose()
 #
-#     dim = (0.1, 0.1, 0.05)
+#     dim = (0.07, 0.07, 0.18)
 #     container_obj = ("free_cup2", "free_cup")
 #     poses = []
 #     for i in container_obj:
@@ -553,11 +553,11 @@ class Utils(object):
 #     #     print("openinggg ", within)
 #     #     # opening within
 #     #
-#     test_points = u.get_points_to_project(dim, sp)
-#     test = u.get_transform('map', 'p')
-#     u.create_obj_test_alignment(container_obj, poses)
+#     # test_points = u.get_points_to_project(dim, sp)
+#     # test = u.get_transform('map', 'p')
+#     u.create_obj_test_alignment(container_obj, poses, dim)
 #     ab = u.is_above(sp, 0.05, dp, 0.05, "free_cup")
-#     u.test_point_within_bounds(test_points, test[0])
+#     # u.test_point_within_bounds(test_points, test[0])
 #     print("above ", (ab))
 #     #     # u.test_alignment_to_get_direction(poses[1])
 #     vis_array = u.get_test_visualization_marker_array()
