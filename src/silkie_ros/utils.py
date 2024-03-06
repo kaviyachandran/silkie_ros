@@ -424,6 +424,7 @@ class Utils(object):
         return v_src_dest / np.linalg.norm(v_src_dest)
 
     def get_direction_relative_to_dest(self, direction_vector):
+        # ToDo: Wrt robot
         coordinate = np.argsort(direction_vector)[::-1]  # descending order
         location = []
         for index in coordinate:

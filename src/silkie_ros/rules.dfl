@@ -117,7 +117,9 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 #23f: SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
 
 # For the source container to move above the destination container
-23f: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), -above(?src, ?dest), -goalReached(?dest)  => P_moveUp(?src, ?dest)
+23f: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), -above(?src, ?dest), -goalReached(?dest)  => P_moveUp(?src, ?dest)
+23g: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), farAbove(?src, ?dest), -goalReached(?dest)  => P_moveDown(?src, ?dest)
+# ToDo: How high it can move depends on the length and breadth of the destination container
 
 # Ask Mihai : How to describe that we can use the rules to anticipate how the situation evolves?
 # When the source is tilted and the liquid is pouring, then the contents in the destination increases given that there
@@ -129,9 +131,9 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 24: hasPath(?l, ?p), PathRole(?p), Thing(?l), Trajector(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d), SourceRole(?s), DestinationRole(?d) => pours(?s, ?l)
 24a: SourceRole(?s), DestinationRole(?d), Thing(?l), movesAwayFrom(?l, ?s), movesTowards(?l, ?d) => poursTo(?s, ?d)
-24b: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l)  => Q_movesUpIn(?l, ?d)
-# 24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostFull(?d)
-24d: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d), pours(?s, ?l),  movesUpIn(?l, ?d) => Q_almostGoalReached(?d)
+24b: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d)  => Q_movesUpIn(?l, ?d)
+# 24c: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d),  movesUpIn(?l, ?d) => Q_almostFull(?d)
+24d: SourceRole(?s), DestinationRole(?d), Thing(?l), poursTo(?s,?d),  movesUpIn(?l, ?d) => Q_almostGoalReached(?d)
 
 # 25: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostFull(?d), -goalReached(?d) => P_decreaseTilting(?s)
 25a: SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), almostGoalReached(?d), -goalReached(?d) => P_decreaseTilting(?s)
@@ -155,16 +157,17 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 27a: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), aligned(?d, ?p), supports(?s, ?o), -goalReached(?d), Solid(?o) => Q_movesTowards(?o, ?d)
 27b: SourceRole(?s), DestinationRole(?d),  Solid(?o), supports(?s, ?o), -movesTowards(?o, ?d), -goalReached(?d) => P_pushTowards(?o, ?d)
 
-# collision
+# collision. ToDO : w.r.t the robot
 #28: SourceRole(?s), DestinationRole(?d), contact(?s, ?d) => -canPourTo(?s, ?d)
 28a: contact(?a, ?b) => contact(?b, ?a)
 28b: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), behind(?dest, ?src) => P_moveForward(?src)
 28c: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveBack(?src)
 28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
 28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
+# above and below
 28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest) => P_moveUp(?src)
 
-# spilling
+# spilling. ToDO : w.r.t the src cup
 29: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), -undershoot(?l) => overshoot(?l)
 29b: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), behind(?dest, ?src) => P_moveForward(?src)
 29c: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), inFrontOf(?dest, ?src)  => P_moveBack(?src)
