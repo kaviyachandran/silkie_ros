@@ -96,12 +96,12 @@ class Blackboard(object):
             "srcHeightLimits": 0.0,
             "srcFarAbove": False
         }
-        # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
-        # if dimension_data:
-        #     self.set_dimension_values(dimension_data)
-        # else:
-        self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
-        self.scene_desc["dest_dim"] = (0.07, 0.07, 0.18)
+        dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
+        if dimension_data:
+            self.set_dimension_values(dimension_data)
+        else:
+            self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
+            self.scene_desc["dest_dim"] = (0.07, 0.07, 0.18)
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
         for index, value in enumerate(self.dest_opening.items()):
@@ -460,7 +460,7 @@ class SimulationSource:
 
         self.distance_threshold = (0.0, 0.30)
         # in degrees. greater than [ 76.65427899,  -0.310846  , -34.33960301] along x this lead to pouring
-        self.object_flow_threshold = 10  # no.of particles per cycle
+        self.object_flow_threshold = 5  # no.of particles per cycle
 
         self.source_tilt_angle = 45.0
         self.source_upright_angle = 10.0
@@ -722,7 +722,7 @@ class SimulationSource:
 
             print(f'particles in src boundary :{num_of_particles_in_src_boundary}')
 
-            if spill_count and num_of_particles_in_src_boundary >= 0.2 * self.spilled_particles[-1]:
+            if num_of_particles_in_src_boundary >= 0.2 * self.spilled_particles[-1]:
                 self.undershoot = True
             else:
                 self.undershoot = False
@@ -734,7 +734,7 @@ class SimulationSource:
             print("src heights ", (top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"])
 
             if self.src_orientation >= self.source_tilt_angle and \
-                    (top_src_point - top_dest_point) > self.bb.context_values["srcHeightLimits"]:
+                    np.isclose((top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"], atol=0.01):
                 self.src_far_above = True
             else:
                 self.src_far_above = False
@@ -777,7 +777,7 @@ class SimulationSource:
             self.bb.context_values["isSpilled"] = False
 
         # spilling now
-        if np.count_nonzero(np.diff(self.spilled_particles[-10:]) > 0) >= 5:
+        if np.count_nonzero(np.diff(self.spilled_particles[-5:]) > 0) >= 3:
             self.bb.context_values["isSpilling"] = True
         else:
             self.bb.context_values["isSpilling"] = False
@@ -818,7 +818,7 @@ class SimulationSource:
         else:
             self.bb.context_values["tooSlow"] = False
 
-        if obj_avg > 100:
+        if obj_avg > 10:
             self.bb.context_values["tooFast"] = True
             print("fast true")
         else:

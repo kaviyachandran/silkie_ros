@@ -92,8 +92,8 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
 18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
-18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
-18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
+18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -contact(?s, ?d), hasOpeningWithin(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
+18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -contact(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
 ## Check 10a and 10b. Todo: Can we state Decreasing Tilt leads to S upright
 ##18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => P_decreaseTilting(?s)
 
@@ -173,5 +173,10 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 29c: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), inFrontOf(?dest, ?src)  => P_moveBack(?src)
 29d: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), leftOf(?dest, ?src)  => P_moveRight(?src)
 29e: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), rightOf(?dest, ?src)  => P_moveLeft(?src)
-29f: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), above(?src, ?dest) => P_moveDown(?src)
+29f: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), farAbove(?src, ?dest) => P_moveDown(?src)
+
+30a: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), behind(?dest, ?src) => P_moveBack(?src)
+30b: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), inFrontOf(?dest, ?src)  => P_moveForward(?src)
+30c: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), leftOf(?dest, ?src)  => P_moveLeft(?src)
+30d: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), rightOf(?dest, ?src)  => P_moveRight(?src)
 

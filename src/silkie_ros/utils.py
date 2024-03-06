@@ -241,7 +241,7 @@ class Utils(object):
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame=dest_name, ns='src_bottom_pt', obj_type=2, action=0, color=(1, 1, 0),
                                     lifetime=0, position=dest_Point_src_bottom[:3], size=(0.03, 0.03, 0.03)))
-        print("points  ", dest_Point_src_bottom[2][0], dest_top_point[2])
+        # print("points  ", dest_Point_src_bottom[2][0], dest_top_point[2])
         return bool(dest_Point_src_bottom[2][0] > dest_top_point[2])
 
     def distance(self, p1, p2):
