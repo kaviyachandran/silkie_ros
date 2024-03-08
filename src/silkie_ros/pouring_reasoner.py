@@ -40,7 +40,7 @@ class Blackboard(object):
                              "veryWide": (0.2, 0.3)}
         self.src_height = (0.15, 0.2, 0.3, 0.35)
 
-        self.max_pouring_height = 0.3
+        # self.max_pouring_height = 0.3
 
         self.experts = []
         self.scene_desc = {
@@ -96,12 +96,12 @@ class Blackboard(object):
             "srcHeightLimits": 0.0,
             "srcFarAbove": False
         }
-        dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
-        if dimension_data:
-            self.set_dimension_values(dimension_data)
-        else:
-            self.scene_desc["source_dim"] = (0.07, 0.07, 0.18)
-            self.scene_desc["dest_dim"] = (0.07, 0.07, 0.18)
+        # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
+        # if dimension_data:
+        #     self.set_dimension_values(dimension_data)
+        # else:
+        self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
+        self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
         for index, value in enumerate(self.dest_opening.items()):
@@ -734,10 +734,12 @@ class SimulationSource:
             print("src heights ", (top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"])
 
             if self.src_orientation >= self.source_tilt_angle and \
-                    np.isclose((top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"], atol=0.01):
+                    (top_src_point - top_dest_point) > self.bb.context_values["srcHeightLimits"]:
                 self.src_far_above = True
             else:
                 self.src_far_above = False
+
+            print("src far above ", self.src_far_above)
 
         if self.debug:
             self.publish_test_markers()
