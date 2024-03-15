@@ -18,13 +18,10 @@ import argparse
 from utils import Utils
 
 import rospy
-import visualization_msgs
 from geometry_msgs.msg import PoseStamped, Point, Pose
 from mujoco_msgs.msg import ObjectStateArray
 from mujoco_msgs.msg import ContactInfo
 from std_msgs.msg import String
-import tf
-from tf.transformations import quaternion_matrix
 from visualization_msgs.msg import MarkerArray
 
 
@@ -44,19 +41,20 @@ class Blackboard(object):
 
         self.experts = []
         self.scene_desc = {
-            "source": "free_cup",
-            "dest": "free_cup2",
+            "source": "pot",
+            "dest": "bowl",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 100,
+            "total_particles": 11,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60,
-            "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
+            "dest_goal": 6,
+            "sourceHasEdges": True,  # This can be obtained from some vis marker array if the type is set correctly
             "retained_substance_type": "Thing",
             "retained_substance": "big_ball",
+            "retained_substance_count": 1,
             "action_type": "draining"
             # todo: More info on actions performed? for e.g: draining requires retained substance and poured substance
         }
@@ -98,7 +96,7 @@ class Blackboard(object):
             "srcCornerSpoutRegion": "",
             "collides": False,
             "retainedSubstanceCloseToOpening": False,
-            
+            "sourceContainsRetainedSubstance": False,
             "destinationHasOpening": "",
             "srcHeightLimits": 0.0,
             "srcFarAbove": False
@@ -107,8 +105,8 @@ class Blackboard(object):
         # if dimension_data:
         #     self.set_dimension_values(dimension_data)
         # else:
-        self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
-        self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
+        self.scene_desc["source_dim"] = (0.2, 0.2, 0.12)
+        self.scene_desc["dest_dim"] = (0.2, 0.2, 0.18)
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
         for index, value in enumerate(self.dest_opening.items()):
@@ -232,6 +230,8 @@ class Reasoner:
         facts[self.bb.scene_desc["dest_type"]].addFact(self.bb.scene_desc["dest"], "", silkie.DEFEASIBLE)
         facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"],
                                            self.bb.scene_desc["poured_substance_type"], "", silkie.DEFEASIBLE))
+        facts.update(Reasoner.create_facts(self.bb.scene_desc["poured_substance"], "PouredSubstanceRole", "",
+                                           silkie.DEFEASIBLE))
         # facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
         #                                    self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
         facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "SourceRole", "", silkie.DEFEASIBLE))
@@ -242,7 +242,7 @@ class Reasoner:
                                                silkie.DEFEASIBLE))
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
                                                self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE))
-	if self.bb.scene_desc["sourceHasEdges"]:
+        if self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "hasEdges", "", silkie.DEFEASIBLE))
         elif not self.bb.scene_desc["sourceHasEdges"]:
             facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-hasEdges", "", silkie.DEFEASIBLE))
@@ -421,19 +421,28 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-farAbove",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
-        if self.bb.context_values["containsLiquid"]:
-            self.current_facts["contains"].addFact(self.bb.scene_desc["source"],
-                                                   self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE)
-        elif not self.bb.context_values["containsLiquid"]:
-            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
-                                                            self.bb.scene_desc["poured_substance"], silkie.DEFEASIBLE))
-
         if self.bb.context_values["retainedSubstanceCloseToOpening"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "closeToOpening",
                                                             "", silkie.DEFEASIBLE))
         elif not self.bb.context_values["retainedSubstanceCloseToOpening"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["retained_substance"], "-closeToOpening",
                                                             "", silkie.DEFEASIBLE))
+        if self.bb.context_values["sourceContainsRetainedSubstance"]:
+            if "contains" in self.current_facts.keys():
+                self.current_facts["contains"].addFact(self.bb.scene_desc["source"],
+                                                       self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE)
+            else:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "contains",
+                                                                self.bb.scene_desc["retained_substance"],
+                                                                silkie.DEFEASIBLE))
+        elif not self.bb.context_values["sourceContainsRetainedSubstance"]:
+            if "-contains" in self.current_facts.keys():
+                self.current_facts["-contains"].addFact(self.bb.scene_desc["source"],
+                                                        self.bb.scene_desc["retained_substance"], silkie.DEFEASIBLE)
+            else:
+                self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-contains",
+                                                                self.bb.scene_desc["retained_substance"],
+                                                                silkie.DEFEASIBLE))
         return
 
     @staticmethod
@@ -460,7 +469,6 @@ class SimulationSource:
         self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
         self.dest_points_to_project_to: tuple = ()
         self.src_points_to_project_to: tuple = ()
-        self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
         self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener, queue_size=1)
@@ -512,6 +520,7 @@ class SimulationSource:
         self.collides = False
         self.contact_point = []
         self.count_in_src = 0
+        self.retained_substance_count = 0
         self.src_far_above = False
 
     # def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
@@ -560,6 +569,7 @@ class SimulationSource:
             spill_count = 0
             count_in_dest = 0
             self.count_in_src = 0
+            retained_substance_name = []
             # particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
@@ -599,7 +609,7 @@ class SimulationSource:
             dest_ac = dest_C - dest_A
             dest_ad = dest_D - dest_A
             for obj in req.object_states:
-                if "ball" in obj.name:
+                if "sync_ball" in obj.name:
                     src_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - src_A
                     dest_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - dest_A
                     inside_src = self.util_helper.points_within_bounds_3d(src_ab, src_ac, src_ad, src_ap)
@@ -611,12 +621,16 @@ class SimulationSource:
                     # particle_positions.append([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z])
                     # count += 1
                     if inside_src:  # ToDo : check if the particle is inside the source has a velocity
+                        self.count_in_src += 1
                     elif self.util_helper.points_within_bounds_3d(dest_ab, dest_ac, dest_ad, dest_ap):
                         count_in_dest += 1
                     else:
                         spill_count += 1
                         self.spilled_particle_poses.append([obj.pose.position.x, obj.pose.position.y,
                                                             obj.pose.position.z])
+                elif "big_ball" in obj.name:
+                    self.retained_substance_count += 1
+                    retained_substance_name.append(obj.name)
             print("in source: {}, in dest: {}".format(self.count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
             current_particle_out = (spill_count + count_in_dest) - all_particles_not_in_src
@@ -632,14 +646,6 @@ class SimulationSource:
                 self.object_in_dest = count_in_dest
             else:
                 self.particle_increase_in_dest = False
-
-            # if len(self.object_flow) > 3:
-            #     obj_avg = np.average(self.object_flow[-3:])
-            #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
-            # elif len(self.object_flow):
-            #     obj_avg = np.average(self.object_flow)
-            #     # print("obj flow:{}, avg: {}".format(self.object_flow, obj_avg))
-            #  moving towards the dest obj.velocity.linear.x
 
             self.distance = math.dist((self.bb.context_values["source_pose"].pose.position.x,
                                        self.bb.context_values["source_pose"].pose.position.y),
@@ -754,18 +760,26 @@ class SimulationSource:
                 self.undershoot = False
 
             top_src_point = self.bb.context_values["source_pose"].pose.position.z + \
-                            self.bb.scene_desc["source_dim"][2]/2
+                            self.bb.scene_desc["source_dim"][2] / 2
             top_dest_point = self.bb.context_values["dest_pose"].pose.position.z + \
-                             self.bb.scene_desc["dest_dim"][2]/2
+                             self.bb.scene_desc["dest_dim"][2] / 2
             print("src heights ", (top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"])
 
-            if self.src_orientation >= self.source_tilt_angle and \
-                    (top_src_point - top_dest_point) > self.bb.context_values["srcHeightLimits"]:
+            if (top_src_point - top_dest_point) > self.bb.context_values["srcHeightLimits"]:
                 self.src_far_above = True
             else:
                 self.src_far_above = False
 
             print("src far above ", self.src_far_above)
+
+            self.distance_from_retained_substance_to_opening = self.util_helper.get_distance_to_retained_object(
+                 lies_along="y",
+                 direction="+x",
+                 obj_pose=self.bb.context_values["source_pose"].pose,
+                 ref_name=self.bb.scene_desc["source"],
+                 obj_dim=self.bb.scene_desc["source_dim"],
+                 obj_name=retained_substance_name)
+            print("distance_from_retained_substance ", self.distance_from_retained_substance_to_opening)
 
         if self.debug:
             self.publish_test_markers()
@@ -773,22 +787,6 @@ class SimulationSource:
     def publish_test_markers(self):
         self.marker_array_publisher.publish(self.util_helper.get_test_visualization_marker_array())
         self.util_helper.test_marker_array.markers = []
-
-            pot_bigball = self.tf_transform.lookupTransform(source_frame=self.bb.scene_desc["retained_substance"],
-                                                            target_frame=self.bb.scene_desc["source"],
-                                                            time=rospy.Time(0))
-            pot_P_bigball = Point()
-            pot_P_bigball.x = pot_bigball[0][0]
-            pot_P_bigball.y = pot_bigball[0][1]
-            pot_P_bigball.z = pot_bigball[0][2]
-
-            self.distance_from_retained_substance_to_opening = get_distance_to_retained_object \
-                (lies_along="y",
-                 direction="+x",
-                 obj_pose=self.bb.context_values["source_pose"].pose,
-                 obj_dim=self.bb.scene_desc["source_dim"],
-                 pot_P_obj=pot_P_bigball)
-            print("distance_from_retained_substance ", self.distance_from_retained_substance_to_opening)
 
     def update(self):
         if self.distance_threshold[0] < self.distance <= self.distance_threshold[1]:
@@ -808,6 +806,11 @@ class SimulationSource:
             #                                                   silkie.DEFEASIBLE))
             self.bb.context_values["near"] = False
         # print("near false")
+
+        if self.retained_substance_count >= 0.8*self.bb.scene_desc["retained_substance_count"]:
+            self.bb.context_values["sourceContainsRetainedSubstance"] = True
+        else:
+            self.bb.context_values["sourceContainsRetainedSubstance"] = False
 
         if self.count_in_src == 0:
             self.bb.context_values["sourceEmpty"] = True

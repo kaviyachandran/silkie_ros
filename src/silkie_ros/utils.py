@@ -77,11 +77,20 @@ class Utils(object):
 
         return np.linalg.norm(P - closest_pt)
 
-    def get_distance_to_retained_object(self, obj_pose: Pose, obj_dim: tuple, pot_P_obj: Point, lies_along: str,
-                                        direction: str):
-        A, B = self._get_points_on_line(lies_along, direction, obj_pose, obj_dim)
-        P = np.array([pot_P_obj.x, pot_P_obj.y, pot_P_obj.z])
-        return self.closest_point_on_line_to_point(A, B, P)
+    def get_distance_to_retained_object(self, obj_pose: Pose, obj_dim: tuple, ref_name: str, obj_name: list,
+                                        lies_along: str, direction: str):
+        bigball_dist = []
+        for obj in obj_name:
+            pot_bigball = self.get_transform(reference_frame=ref_name,
+                                             target_frame=obj)
+            pot_P_bigball = Point()
+            pot_P_bigball.x = pot_bigball[0][0]
+            pot_P_bigball.y = pot_bigball[0][1]
+            pot_P_bigball.z = pot_bigball[0][2]
+            A, B = self._get_points_on_line(lies_along, direction, obj_pose, obj_dim)
+            P = np.array([pot_P_bigball.x, pot_P_bigball.y, pot_P_bigball.z])
+            bigball_dist.append(self.closest_point_on_line_to_point(A, B, P))
+        return np.sort(bigball_dist)[0]
 
     def is_source_opening_within(self, src_pose: Pose, src_dim: tuple, dest_pose: Pose, dest_dim: tuple, corner: bool) \
             -> (bool, tuple):
@@ -196,7 +205,7 @@ class Utils(object):
 
         closest_index = np.argsort(distance_val)[0]
         self.test_marker_array.markers.append(
-            self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+            self._create_vis_marker(parent_frame='map', ns='opening', obj_type=2, action=0, color=(0, 0, 1), lifetime=0,
                                     position=src_points[closest_index], size=(0.03, 0.03, 0.03)))
 
         # test_check = [self.point_within_bounds(ab, ac, map_P_src_A - a),
@@ -305,8 +314,6 @@ class Utils(object):
         B = self.rotate_point(B, rot_matrix)
         C = self.rotate_point(C, rot_matrix)
         D = self.rotate_point(D, rot_matrix)
-    # projecting the point src_opening_point on the ab and ac vectors. ab perpendicular to  ac
-    return 0 < abs(np.dot(ap, ab)) < abs(np.dot(ab, ab)) and 0 < abs(np.dot(ap, ac)) < abs(np.dot(ac, ac))
 
         return A, B, C, D
 
