@@ -69,7 +69,7 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Below only states if the distance between the source and destination is <= Height of the source. This can be used to
 ### make sure if the pouring is possible. Condition 1. 
 ### largerDimension --- Either height or width (long spout)
-15a: Container(?s), largerDimension(?s, ?hs), Container(?d), distanceBetweenSourceAndDest(?dist), lessThanEqual(?dist,?hs) => near(?s, ?d)
+15b: Container(?s), largerDimension(?s, ?hs), Container(?d), distanceBetweenSourceAndDest(?dist), lessThanEqual(?dist,?hs) => near(?s, ?d)
 
 ### Todo: With a longer spout, the distance bet S and d can be longer
 
@@ -87,14 +87,14 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ### Tilt destination is a location at which the openings of s is within ds, liquid pass through s's opening and is contained inside d. 
 ## 18o: hasTiltDestination(?s, ?g) => LocationRole(?g), willbeAt(?s, ?g)    ###, poursTo(?s, ?d)
 
-18a: Pouring(?act), Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), hasOpeningWithin(?src, ?dest), -goalReached(?dest)  => canPourTo(?src, ?dest)  ### Add this later
+18a: Pouring(?act), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), hasOpeningWithin(?src, ?dest), -goalReached(?dest)  => canPourTo(?src, ?dest)  ### Add this later
 18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
-18c: Draining(?act), Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), RetainedSubstanceRole(?rs), contains(?src,?rs),  -closeToOpening(?rs), near(?src, ?dest), hasOpeningWithin(?src, ?dest), -goalReached(?dest)  => canPourTo(?src, ?dest)
+18c: Draining(?act), SourceRole(?src), DestinationRole(?dest), RetainedSubstanceRole(?rs), contains(?src,?rs),  -closeToOpening(?rs), hasOpeningWithin(?src, ?dest), -drainGoalReached(?src)  => canPourTo(?src, ?dest)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
-18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
-18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -contact(?s, ?d), hasOpeningWithin(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
-18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -contact(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
+18d:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
+18e:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -contact(?s, ?d), hasOpeningWithin(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
+18f:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -contact(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
 ## Check 10a and 10b. Todo: Can we state Decreasing Tilt leads to S upright
 ##18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => P_decreaseTilting(?s)
 
@@ -110,10 +110,10 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 22: SourceRole(?s), DestinationRole(?d), -canPourTo(?s, ?d), -upright(?s) => P_decreaseTilting(?s)
 
 # At the moment, there can be only one conclusion so splitting the motion command in different rules
-23a: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), contains(?src, ?l), above(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
-23b: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), contains(?src, ?l), above(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
-23c: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), contains(?src, ?l), above(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
-23d: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), contains(?src, ?l), above(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
+23a: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l), above(?src, ?dest), behind(?dest, ?src), -goalReached(?dest)  => P_moveBack(?src)
+23b: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l), above(?src, ?dest), inFrontOf(?dest, ?src), -goalReached(?dest)  => P_moveForward(?src)
+23c: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l), above(?src, ?dest), leftOf(?dest, ?src), -goalReached(?dest)  => P_moveLeft(?src)
+23d: SourceRole(?src), DestinationRole(?dest), -hasOpeningWithin(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l), above(?src, ?dest), rightOf(?dest, ?src), -goalReached(?dest)  => P_moveRight(?src)
 #23e: SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => P_decreaseTilting(?src)
 #23f: SourceRole(?src), DestinationRole(?dest), Thing(?l), hasOpeningWithin(?src, ?dest), -goalReached(?dest), contains(?src, ?l), isSpilling(?l)  => -canPourTo(?src, ?dest)
 
@@ -150,6 +150,8 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 26c: SourceRole(?s), DestinationRole(?d), hasEdges(?s), CornerRegion(?p), isTilted(?s), hasLowestOpeningCorner(?s, ?p), -aligned(?d, ?p), -goalReached(?d), RotationDirection(?dir) => P_rotateAlong(?s, ?dir)
 26d: SourceRole(?s), hasEdges(?s), CornerRegion(?p), hasLowestOpeningCorner(?s, ?p) => pourThrough(?s, ?p)
 
+27: Draining(?act), -drainGoalReached(?src), SourceRole(?src), DestinationRole(?dest), poursTo(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l) => Q_contains(?src, ?l)
+
 ### Which direction to move to in case of spill
 
 ### In case of overflow, move back to upright
@@ -165,18 +167,6 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 28c: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), inFrontOf(?dest, ?src)  => P_moveBack(?src)
 28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
 28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
-### spout
-26:  Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasOpening(?src, ?opening), hasSpout(?src, ?spout), hasPart(?opening, ?spout) => substanceLeavesThrough(?src, ?spout)
-26a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasSpout(?src, ?spout), poursTo(?src, ?dest) => substanceLeavesThrough(?src, ?spout)
-# 26c: SourceRole(?src), DestinationRole(?dest), substanceLeavesThrough(?src, ?spout), Liquid(?l), SolidSubstance(?t), contains(?src, ?l), contains(?src, ?t), ?passThrough(?l, ?spout), containedIn(?t, ?src) => Draining(?act)
-26d: containedIn(?l, ?src) => inside(?l, ?src)
-26e: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest)  => drainsFrom(?l, ?t)
-26f:  SourceRole(?src),  PouredSubstanceRole(?l), RetainedSubstanceRole(?t), -contains(?src, ?l), contains(?src, ?t) => drainGoalReached(?src)
-26fa: SourceRole(?src),  PouredSubstanceRole(?l), contains(?src, ?l) => -drainGoalReached(?src)
-26g: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), closeToOpening(?t), -drainGoalReached(?src) => -canPourTo(?src, ?dest)
-26h: SourceRole(?src), DestinationRole(?dest), drainGoalReached(?src) => -canPourTo(?src, ?dest)
-26i: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest), -drainGoalReached(?src), closeToOpening(?t) => -canPourTo(?src, ?dest)
-27: Draining(?act), -drainGoalReached(?src), SourceRole(?src), DestinationRole(?dest), poursTo(?src, ?dest), PouredSubstanceRole(?l), contains(?src, ?l) => Q_contains(?src, ?l)
 # above and below
 28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest) => P_moveUp(?src)
 
@@ -193,3 +183,14 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 30c: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), leftOf(?dest, ?src)  => P_moveLeft(?src)
 30d: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), undershoot(?l), rightOf(?dest, ?src)  => P_moveRight(?src)
 
+### spout
+31:  Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasOpening(?src, ?opening), hasSpout(?src, ?spout), hasPart(?opening, ?spout) => substanceLeavesThrough(?src, ?spout)
+31a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), hasSpout(?src, ?spout), poursTo(?src, ?dest) => substanceLeavesThrough(?src, ?spout)
+# 31b: SourceRole(?src), DestinationRole(?dest), substanceLeavesThrough(?src, ?spout), Liquid(?l), SolidSubstance(?t), contains(?src, ?l), contains(?src, ?t), ?passThrough(?l, ?spout), containedIn(?t, ?src) => Draining(?act)
+31c: containedIn(?l, ?src) => inside(?l, ?src)
+31d: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest)  => drainsFrom(?l, ?t)
+31e:  SourceRole(?src),  PouredSubstanceRole(?l), RetainedSubstanceRole(?t), -contains(?src, ?l), contains(?src, ?t) => drainGoalReached(?src)
+31f: SourceRole(?src),  PouredSubstanceRole(?l), contains(?src, ?l) => -drainGoalReached(?src)
+31g: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), closeToOpening(?t), -drainGoalReached(?src) => -canPourTo(?src, ?dest)
+31h: SourceRole(?src), DestinationRole(?dest), drainGoalReached(?src) => -canPourTo(?src, ?dest)
+31i: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), contains(?src, ?t), PouredSubstanceRole(?l), RetainedSubstanceRole(?t), poursTo(?src, ?dest), -drainGoalReached(?src), closeToOpening(?t) => -canPourTo(?src, ?dest)
