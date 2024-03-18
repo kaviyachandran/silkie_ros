@@ -147,29 +147,29 @@ class Utils(object):
         # print("dest points: ", a, b, c)
         # print("vectors ", ab, ap, ac)
         # print("lengths :", np.dot(ap, ab), np.dot(ab, ab), np.dot(ap, ac), np.dot(ac, ac))
-        # self.test_marker_array.markers.append(
-        #     self._create_vis_marker(parent_frame='map', ns='free_cup2', obj_type=1, action=0, color=(0, 0, 1),
-        #                             lifetime=0,
-        #                             position=(dest_pose.position.x, dest_pose.position.y, dest_pose.position.z),
-        #                             orientation=dest_pose.orientation, size=dest_dim))
-        # self.test_marker_array.markers.append(
-        #     self._create_vis_marker(parent_frame='map', ns='free_cup', obj_type=1, action=0, color=(0, 0, 1),
-        #                             lifetime=0,
-        #                             position=(src_pose.position.x, src_pose.position.y, src_pose.position.z),
-        #                             orientation=src_pose.orientation, size=src_dim))
-        #
-        # self.test_marker_array.markers.append(
-        #     self._create_vis_marker(parent_frame='map', ns='Ad', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
-        #                             position=a, size=(0.01, 0.01, 0.01)))
-        #
-        # self.test_marker_array.markers.append(
-        #     self._create_vis_marker(parent_frame='map', ns='Bd', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
-        #                             position=b, size=(0.01, 0.01, 0.01)))
-        #
-        # self.test_marker_array.markers.append(
-        #     self._create_vis_marker(parent_frame='map', ns='Cd', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
-        #                             position=c, size=(0.01, 0.01, 0.01)))
-        #
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='free_cup2', obj_type=1, action=0, color=(0, 0, 1),
+                                    lifetime=0,
+                                    position=(dest_pose.position.x, dest_pose.position.y, dest_pose.position.z),
+                                    orientation=dest_pose.orientation, size=dest_dim))
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='free_cup', obj_type=1, action=0, color=(0, 0, 1),
+                                    lifetime=0,
+                                    position=(src_pose.position.x, src_pose.position.y, src_pose.position.z),
+                                    orientation=src_pose.orientation, size=src_dim))
+
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='Ad', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
+                                    position=a, size=(0.03, 0.03, 0.03)))
+
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='Bd', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
+                                    position=b, size=(0.03, 0.03, 0.03)))
+
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame='map', ns='Cd', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
+                                    position=c, size=(0.03, 0.03, 0.03)))
+
         # self.test_marker_array.markers.append(
         #     self._create_vis_marker(parent_frame='map', ns='A', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
         #                             position=map_P_src_A, size=(0.01, 0.01, 0.01)))
@@ -196,7 +196,7 @@ class Utils(object):
 
         closest_index = np.argsort(distance_val)[0]
         self.test_marker_array.markers.append(
-            self._create_vis_marker(parent_frame='map', ns='D', obj_type=2, action=0, color=(1, 1, 0), lifetime=0,
+            self._create_vis_marker(parent_frame='map', ns='openD', obj_type=2, action=0, color=(0, 1, 0), lifetime=0,
                                     position=src_points[closest_index], size=(0.03, 0.03, 0.03)))
 
         # test_check = [self.point_within_bounds(ab, ac, map_P_src_A - a),
@@ -241,8 +241,11 @@ class Utils(object):
         self.test_marker_array.markers.append(
             self._create_vis_marker(parent_frame=dest_name, ns='src_bottom_pt', obj_type=2, action=0, color=(1, 1, 0),
                                     lifetime=0, position=dest_Point_src_bottom[:3], size=(0.03, 0.03, 0.03)))
-        # print("points  ", dest_Point_src_bottom[2][0], dest_top_point[2])
-        return bool(dest_Point_src_bottom[2][0] > dest_top_point[2])
+        self.test_marker_array.markers.append(
+            self._create_vis_marker(parent_frame=dest_name, ns='dest_top_pnt', obj_type=2, action=0, color=(1, 1, 0),
+                                    lifetime=0, position=dest_top_point, size=(0.03, 0.03, 0.03)))
+        print("points  ", dest_Point_src_bottom[2][0], dest_top_point[2])
+        return bool(dest_Point_src_bottom[2][0] > 0)
 
     def distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))

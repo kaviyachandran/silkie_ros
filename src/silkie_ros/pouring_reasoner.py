@@ -50,7 +50,7 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 100,
+            "total_particles": 70,
             "source_dim": (),
             "dest_dim": (),
             "dest_goal": 60,
@@ -94,14 +94,18 @@ class Blackboard(object):
             "collides": False,
             "destinationHasOpening": "",
             "srcHeightLimits": 0.0,
-            "srcFarAbove": False
+            "srcFarAbove": False,
+            "srcMaxTiltReached": False
         }
         # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
         # if dimension_data:
         #     self.set_dimension_values(dimension_data)
         # else:
+        # self.scene_desc["source_dim"] = (0.05, 0.05, 0.26)
+        # self.scene_desc["dest_dim"] = (0.065, 0.065, 0.17)
         self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
         self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
+
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
         for index, value in enumerate(self.dest_opening.items()):
@@ -154,6 +158,7 @@ class BlackboardController:
         print("vis ", self.visualize)
         for expert in self.bb_obj.experts:
             expert.update()
+            print("queriesss perception ", self.queries_for_experts)
             expert.query(self.queries_for_experts)
         self.queries_for_experts = []
 
@@ -261,6 +266,13 @@ class Reasoner:
                                                             silkie.DEFEASIBLE))
         elif not self.bb.context_values["isTilted"]:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-isTilted", "",
+                                                            silkie.DEFEASIBLE))
+
+        if self.bb.context_values['srcMaxTiltReached']:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "maxTiltReached", "",
+                                                            silkie.DEFEASIBLE))
+        elif not self.bb.context_values['srcMaxTiltReached']:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-maxTiltReached", "",
                                                             silkie.DEFEASIBLE))
 
         if self.bb.context_values["tooSlow"]:
@@ -463,6 +475,7 @@ class SimulationSource:
         self.object_flow_threshold = 5  # no.of particles per cycle
 
         self.source_tilt_angle = 45.0
+        self.source_max_tilt_angle = 160.0
         self.source_upright_angle = 10.0
         self.dest_upright_angle = 0.0
         self.src_orientation = 0.0
@@ -596,7 +609,8 @@ class SimulationSource:
             self.spilled_particles.append(spill_count)
             if count_in_dest >= self.bb.scene_desc["dest_goal"]:
                 self.dest_goal_reached = True
-            elif count_in_dest >= 0.8 * self.bb.scene_desc["dest_goal"]:
+            elif count_in_dest >= 0.75 * self.bb.scene_desc["dest_goal"]:
+                print("almost goal reached... 75% reached...")
                 self.almost_goal_reached = True
             if current_particle_out >= 0:
                 self.object_flow.append(current_particle_out)
@@ -647,13 +661,11 @@ class SimulationSource:
                 self.bb.context_values["dest_pose"].pose)
 
             # print("pose ", self.bb.context_values["source_pose"].pose)
-            # print(f'q :{self.bb.context_values["source_pose"].pose.orientation}, ANGLEEEE:{angle}, '
-            #       f'point:{point_cup_bottom}, rotated_pt:{point_map_bottom},'
-            #       f' src_vector:{src_vector}')
+            print(f'orientation:{self.src_orientation}')
 
             # compute above (in dest frame)
             if self.util_helper.is_above(self.bb.context_values["source_pose"].pose,
-                                         0.75 * self.bb.scene_desc["source_dim"][2],
+                                         0.50 * self.bb.scene_desc["source_dim"][2],
                                          self.bb.context_values["dest_pose"].pose,
                                          self.bb.scene_desc["dest_dim"][2],
                                          self.bb.scene_desc["dest"]):
@@ -717,7 +729,7 @@ class SimulationSource:
             num_of_particles_in_src_boundary = self.util_helper.get_particles_in_src_spilling_boundary(
                 np.array([self.bb.context_values["source_pose"].pose.position.x,
                           self.bb.context_values["source_pose"].pose.position.y]),
-                radius=self.bb.scene_desc["source_dim"][2] * 1.5,
+                radius=self.bb.scene_desc["source_dim"][0] * 0.55,
                 particle_poses=self.spilled_particle_poses)
 
             print(f'particles in src boundary :{num_of_particles_in_src_boundary}')
@@ -790,6 +802,12 @@ class SimulationSource:
         else:
             self.bb.context_values['isTilted'] = False
 
+        # max tilt
+        if self.src_orientation >= self.source_max_tilt_angle:
+            self.bb.context_values['srcMaxTiltReached'] = True
+        else:
+            self.bb.context_values['srcMaxTiltReached'] = False
+
         # upright
         if self.src_direction > 0 and self.src_orientation <= self.source_upright_angle:
             self.bb.context_values["sourceUpright"] = True
@@ -807,6 +825,7 @@ class SimulationSource:
             self.bb.context_values["poursTo"] = True
         else:
             self.bb.context_values["poursTo"] = False
+
 
         obj_avg = 0
         if len(self.object_flow) > 3:
@@ -878,9 +897,14 @@ class SimulationSource:
             self.bb.context_values["locationOfSourceRelativeToDestination"] = \
                 self.util_helper.get_direction_relative_to_dest(self.direction_vector)
 
+
+        # if spills, find relative position
+        if self.bb.context_values["isSpilling"]:
+            self.bb.context_values["locationOfSourceRelativeToDestination"] = \
+                self.util_helper.get_direction_relative_to_dest(self.direction_vector)
+
         print(f'direction: {self.direction_vector}, '
               f'LOCATION  : {self.bb.context_values["locationOfSourceRelativeToDestination"]}')
-
         # undershoot
         if self.undershoot:
             self.bb.context_values["undershoot"] = True
@@ -888,6 +912,13 @@ class SimulationSource:
             self.bb.context_values["undershoot"] = False
 
         self.collides = False
+
+        # almost goal reached
+        print("almost goal reached ", self.almost_goal_reached)
+        if self.almost_goal_reached:
+            self.bb.context_values["almostGoalReached"] = True
+        else:
+            self.bb.context_values["almostGoalReached"] = False
 
     def query(self, queries: list):
         # Just compute the queries here. the variables you use should come from context values which is already set

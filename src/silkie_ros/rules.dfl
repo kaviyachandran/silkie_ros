@@ -88,11 +88,11 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 ## 18o: hasTiltDestination(?s, ?g) => LocationRole(?g), willbeAt(?s, ?g)    ###, poursTo(?s, ?d)
 
 18a: Container(?src), Container(?dest), SourceRole(?src), DestinationRole(?dest), near(?src, ?dest), -goalReached(?dest), hasOpeningWithin(?src, ?dest)  => canPourTo(?src, ?dest)  ### Add this later hasOpeningWithin(?src, ?dest)
-18b: canPourTo(?src, ?dest), -isTilted(?src) => P_increaseTilting(?src)
+18b: canPourTo(?src, ?dest), -isTilted(?src), -isSpilling(?l), -maxTiltReached(?src) => P_increaseTilting(?src)
 
 # For the liquid to come out of the container, the angle of tipping has to be increased
-18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d) => P_increaseTilting(?s)
-18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -contact(?s, ?d), hasOpeningWithin(?s, ?d), -goalReached(?d) => P_increaseTilting(?s)
+18:  SourceRole(?s), DestinationRole(?d), -poursTo(?s,?d), canPourTo(?s,?d), -goalReached(?d), -isSpilling(?l), -maxTiltReached(?s) => P_increaseTilting(?s)
+18c:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), slowFlowFrom(?s, ?d), -contact(?s, ?d), hasOpeningWithin(?s, ?d), -goalReached(?d), -maxTiltReached(?s) => P_increaseTilting(?s)
 18d:  SourceRole(?s), DestinationRole(?d), poursTo(?s,?d), fastFlowFrom(?s, ?d), -contact(?s, ?d), -goalReached(?d) => P_decreaseTilting(?s)
 ## Check 10a and 10b. Todo: Can we state Decreasing Tilt leads to S upright
 ##18a: poursTo(?s,?d), isTilted(?s), -canPourTo(?s,?d) => P_decreaseTilting(?s)
@@ -165,8 +165,8 @@ r_3: canPour(?x, ?l), Container(?y), SourceRole(?x), DestinationRole(?y), near(?
 28d: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), leftOf(?dest, ?src)  => P_moveRight(?src)
 28e: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), rightOf(?dest, ?src)  => P_moveLeft(?src)
 # above and below
-28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest) => P_moveUp(?src)
-
+28f: SourceRole(?src), DestinationRole(?dest), contact(?src, ?dest), isTilted(?src) => P_moveUp(?src)
+28f > 23g
 # spilling. ToDO : w.r.t the src cup
 29: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), isSpilling(?l), hasOpeningWithin(?src, ?dest), -undershoot(?l) => overshoot(?l)
 29b: SourceRole(?src), DestinationRole(?dest), contains(?src, ?l), overshoot(?l), behind(?dest, ?src) => P_moveForward(?src)
