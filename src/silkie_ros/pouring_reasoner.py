@@ -24,6 +24,7 @@ from mujoco_msgs.msg import ObjectStateArray
 from mujoco_msgs.msg import ContactInfo
 from std_msgs.msg import String
 import tf
+from tf2_msgs.msg import TFMessage
 from tf.transformations import euler_from_quaternion, quaternion_matrix
 from visualization_msgs.msg import MarkerArray
 
@@ -38,22 +39,24 @@ class Blackboard(object):
                              "medium": (0.10, 0.15),
                              "wide": (0.15, 0.2),
                              "veryWide": (0.2, 0.3)}
-        self.src_height = (0.15, 0.2, 0.3, 0.35)
-
+        # self.src_height = (0.15, 0.2, 0.3, 0.35)
+        self.src_height = (0.35, 0.3, 0.3, 0.35)
         # self.max_pouring_height = 0.3
 
         self.experts = []
         self.scene_desc = {
-            "source": "free_cup",
-            "dest": "free_cup2",
+            # "source": "free_cup",
+            # "dest": "free_cup2",
+            "source": "SM_MilkPitcher",
+            "dest": "SM_BigBowl",
             "source_type": "Container",
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 70,
+            "total_particles": 40,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60,
+            "dest_goal": 40,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
@@ -103,8 +106,10 @@ class Blackboard(object):
         # else:
         # self.scene_desc["source_dim"] = (0.05, 0.05, 0.26)
         # self.scene_desc["dest_dim"] = (0.065, 0.065, 0.17)
-        self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
-        self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
+        self.scene_desc["source_dim"] = (0.09, 0.08, 0.11)
+        self.scene_desc["dest_dim"] = (0.17, 0.17, 0.07)
+        # self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
+        # self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
 
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
@@ -165,23 +170,24 @@ class BlackboardController:
     def reportTargetConclusions(self, theory, i2s, whitelist, fig, plotWindow, graphStoragePrefix=None, k=0):
         # print(type(theory), type(i2s))
 
-        if plotWindow is not None:
-            plt.cla()
-        if "" == graphStoragePrefix:
-            graphStoragePrefix = None
-        visFile = None
-        if graphStoragePrefix is not None:
-            visFile = graphStoragePrefix + "_%d.gml" % k
+        # if plotWindow is not None:
+        #     plt.cla()
+        # if "" == graphStoragePrefix:
+        #     graphStoragePrefix = None
+        # visFile = None
+        # if graphStoragePrefix is not None:
+        #     visFile = graphStoragePrefix + "_%d.gml" % k
 
-        conclusions = silkie.dflInference(theory, i2s=i2s, fig=fig, plotWindow=plotWindow, visFile=visFile)
+        # conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=plotWindow, fig=fig, visFile=visFile)
+        conclusions = silkie.dflInference(theory, i2s=i2s, plotWindow=None, fig=None, visFile=None)
         conclusions = silkie.idx2strConclusions(conclusions, i2s)
-        for c in conclusions.defeasiblyProvable:
-            if c[0] in whitelist:
-                print("def ", c)
-        if plotWindow is not None:
-            plt.draw()
-            plt.pause(0.001)
-            input("Press ENTER to continue")
+        # for c in conclusions.defeasiblyProvable:
+        #     if c[0] in whitelist:
+        #         print("def ", c)
+        # if plotWindow is not None:
+        #     plt.draw()
+        #     plt.pause(0.001)
+        #     input("Press ENTER to continue")
 
     def get_consequents(self):
         theory = self.reasoner.build_theory()
@@ -449,7 +455,8 @@ class SimulationSource:
         self.src_points_to_project_to: tuple = ()
         self.tf_transform = tf.TransformListener()
         self.bb = bb
-        self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.sim_subscriber = rospy.Subscriber("/tf", TFMessage, self.pose_listener)
+        # self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
         self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener, queue_size=1)
         # self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
         self.sim_queries: list = []
@@ -477,7 +484,7 @@ class SimulationSource:
         self.source_tilt_angle = 45.0
         self.source_max_tilt_angle = 160.0
         self.source_upright_angle = 10.0
-        self.dest_upright_angle = 0.0
+        self.dest_upright_angle = 3.0
         self.src_orientation = 0.0
         self.src_direction = 1
         self.dest_orientation = 0.0
@@ -533,36 +540,58 @@ class SimulationSource:
 
     def pose_listener(self, req):
 
-        if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
-                                  rospy.Time(
-                                      self.bb.context_values["source_pose"].header.stamp.secs,
-                                      self.bb.context_values[
-                                          "source_pose"].header.stamp.nsecs)).to_sec() >= 0.05:
+        # if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
+        #                           rospy.Time(
+        #                               self.bb.context_values["source_pose"].header.stamp.secs,
+        #                               self.bb.context_values[
+        #                                   "source_pose"].header.stamp.nsecs)).to_sec() >= 0.01:
 
-            print("pose listener", (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
-                                    rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
-                                               self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
+        if req.transforms and len(req.transforms) and (
+                rospy.Time(req.transforms[0].header.stamp.secs, req.transforms[0].header.stamp.nsecs) -
+                rospy.Time(
+                    self.bb.context_values["source_pose"].header.stamp.secs,
+                    self.bb.context_values[
+                        "source_pose"].header.stamp.nsecs)).to_sec() >= 0.01:
+            print("pose listener",
+                  (rospy.Time(req.transforms[0].header.stamp.secs, req.transforms[0].header.stamp.nsecs) -
+                   rospy.Time(self.bb.context_values["source_pose"].header.stamp.secs,
+                              self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec())
+            print("time stamp ", req.transforms[0].header.stamp.secs)
             spill_count = 0
             count_in_dest = 0
             self.count_in_src = 0
             # particle_positions = []
-            for obj in req.object_states:
+            for obj in req.transforms:
                 # print("name ", obj.name)
-                if obj.name == self.bb.scene_desc["source"]:
+                if obj.child_frame_id == self.bb.scene_desc["source"]:
                     # print("source")
                     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
                     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
-                    self.bb.context_values["source_pose"].pose = obj.pose
+                    self.bb.context_values["source_pose"].pose.position.x = obj.transform.translation.x
+                    self.bb.context_values["source_pose"].pose.position.y = obj.transform.translation.y
+                    self.bb.context_values["source_pose"].pose.position.z = obj.transform.translation.z
+                    self.bb.context_values["source_pose"].pose.orientation.x = obj.transform.rotation.x
+                    self.bb.context_values["source_pose"].pose.orientation.y = obj.transform.rotation.y
+                    self.bb.context_values["source_pose"].pose.orientation.z = obj.transform.rotation.z
+                    self.bb.context_values["source_pose"].pose.orientation.w = obj.transform.rotation.w
                     self.src_points_to_project_to = self.util_helper.get_points_to_project(
                         self.bb.scene_desc["source_dim"],
                         self.bb.context_values["source_pose"].pose)
 
-                elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
+                elif obj.child_frame_id == self.bb.scene_desc[
+                    "dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
                     self.bb.context_values["dest_pose"].header.frame_id = self.bb.scene_desc["dest"]
                     self.bb.context_values["dest_pose"].header.stamp = \
                         self.bb.context_values["source_pose"].header.stamp
-                    self.bb.context_values["dest_pose"].pose = obj.pose
+                    self.bb.context_values["dest_pose"].pose.position.x = obj.transform.translation.x
+                    self.bb.context_values["dest_pose"].pose.position.y = obj.transform.translation.y
+                    self.bb.context_values["dest_pose"].pose.position.z = obj.transform.translation.z
+                    self.bb.context_values["dest_pose"].pose.orientation.x = obj.transform.rotation.x
+                    self.bb.context_values["dest_pose"].pose.orientation.y = obj.transform.rotation.y
+                    self.bb.context_values["dest_pose"].pose.orientation.z = obj.transform.rotation.z
+                    self.bb.context_values["dest_pose"].pose.orientation.w = obj.transform.rotation.w
+
                     self.dest_points_to_project_to = self.util_helper.get_points_to_project(
                         self.bb.scene_desc["dest_dim"],
                         self.bb.context_values["dest_pose"].pose)
@@ -583,10 +612,14 @@ class SimulationSource:
             dest_ab = dest_B - dest_A
             dest_ac = dest_C - dest_A
             dest_ad = dest_D - dest_A
-            for obj in req.object_states:
-                if "ball" in obj.name:
-                    src_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - src_A
-                    dest_ap = np.array([obj.pose.position.x, obj.pose.position.y, obj.pose.position.z]) - dest_A
+            for obj in req.transforms:
+                if "particle" in obj.child_frame_id:
+                    src_ap = np.array(
+                        [obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z]) \
+                             - src_A
+                    dest_ap = np.array(
+                        [obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z]) \
+                              - dest_A
                     inside_src = self.util_helper.points_within_bounds_3d(src_ab, src_ac, src_ad, src_ap)
 
                     # inside_src = inside(self.src_limits[1], self.src_limits[0], obj.pose.position)
@@ -601,8 +634,8 @@ class SimulationSource:
                         count_in_dest += 1
                     else:
                         spill_count += 1
-                        self.spilled_particle_poses.append([obj.pose.position.x, obj.pose.position.y,
-                                                            obj.pose.position.z])
+                        self.spilled_particle_poses.append([obj.transform.translation.x, obj.transform.translation.y,
+                                                            obj.transform.translation.z])
             print("in source: {}, in dest: {}".format(self.count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
             current_particle_out = (spill_count + count_in_dest) - all_particles_not_in_src
@@ -659,6 +692,8 @@ class SimulationSource:
             self.dest_direction, self.dest_orientation = self.util_helper.get_direction_and_orientation(
                 self.bb.scene_desc["dest_dim"][2],
                 self.bb.context_values["dest_pose"].pose)
+
+            print("dest orientation ", self.dest_orientation)
 
             # print("pose ", self.bb.context_values["source_pose"].pose)
             print(f'orientation:{self.src_orientation}')
@@ -740,9 +775,9 @@ class SimulationSource:
                 self.undershoot = False
 
             top_src_point = self.bb.context_values["source_pose"].pose.position.z + \
-                            self.bb.scene_desc["source_dim"][2]/2
+                            self.bb.scene_desc["source_dim"][2] / 2
             top_dest_point = self.bb.context_values["dest_pose"].pose.position.z + \
-                             self.bb.scene_desc["dest_dim"][2]/2
+                             self.bb.scene_desc["dest_dim"][2] / 2
             print("src heights ", (top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"])
 
             if self.src_orientation >= self.source_tilt_angle and \
@@ -826,7 +861,6 @@ class SimulationSource:
         else:
             self.bb.context_values["poursTo"] = False
 
-
         obj_avg = 0
         if len(self.object_flow) > 3:
             obj_avg = np.average(self.object_flow[-3:])
@@ -897,7 +931,6 @@ class SimulationSource:
             self.bb.context_values["locationOfSourceRelativeToDestination"] = \
                 self.util_helper.get_direction_relative_to_dest(self.direction_vector)
 
-
         # if spills, find relative position
         if self.bb.context_values["isSpilling"]:
             self.bb.context_values["locationOfSourceRelativeToDestination"] = \
@@ -954,7 +987,7 @@ if __name__ == '__main__':
     blackboard = Blackboard()
     blackboard.add_experts(SimulationSource(blackboard, debug))
 
-    controller = BlackboardController(blackboard, visualize=doVisualize)
+    controller = BlackboardController(blackboard, visualize=True)
 
     rate = rospy.Rate(10)  # 10hz
     while not rospy.is_shutdown():
