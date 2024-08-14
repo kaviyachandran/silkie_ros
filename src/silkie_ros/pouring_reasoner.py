@@ -50,10 +50,10 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 70,
+            "total_particles": 30,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60,
+            "dest_goal": 30,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
@@ -475,7 +475,7 @@ class SimulationSource:
         self.object_flow_threshold = 5  # no.of particles per cycle
 
         self.source_tilt_angle = 45.0
-        self.source_max_tilt_angle = 160.0
+        self.source_max_tilt_angle = 135.0
         self.source_upright_angle = 10.0
         self.dest_upright_angle = 0.0
         self.src_orientation = 0.0
@@ -603,11 +603,12 @@ class SimulationSource:
                         spill_count += 1
                         self.spilled_particle_poses.append([obj.pose.position.x, obj.pose.position.y,
                                                             obj.pose.position.z])
-            print("in source: {}, in dest: {}".format(self.count_in_src, count_in_dest))
             all_particles_not_in_src = sum(self.object_flow)
             current_particle_out = (spill_count + count_in_dest) - all_particles_not_in_src
+            print("in source: {}, in dest: {}, current_particle_out: {}, all_particles_not_in_src:{} ".format
+                  (self.count_in_src, count_in_dest, current_particle_out, all_particles_not_in_src))
             self.spilled_particles.append(spill_count)
-            if count_in_dest >= self.bb.scene_desc["dest_goal"]:
+            if count_in_dest >= self.bb.scene_desc["dest_goal"] or self.count_in_src == 0:
                 self.dest_goal_reached = True
             elif count_in_dest >= 0.75 * self.bb.scene_desc["dest_goal"]:
                 print("almost goal reached... 75% reached...")
@@ -734,7 +735,7 @@ class SimulationSource:
 
             print(f'particles in src boundary :{num_of_particles_in_src_boundary}')
 
-            if num_of_particles_in_src_boundary >= 0.2 * self.spilled_particles[-1]:
+            if self.spilling and num_of_particles_in_src_boundary >= 0.2 * self.spilled_particles[-1]:
                 self.undershoot = True
             else:
                 self.undershoot = False
