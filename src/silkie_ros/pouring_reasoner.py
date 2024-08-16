@@ -15,6 +15,8 @@ import silkie
 import matplotlib.pyplot as plt
 import argparse
 
+from tf2_msgs.msg import TFMessage
+
 from utils import Utils
 
 import rospy
@@ -50,7 +52,7 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 30,
+            "total_particles": 51,
             "source_dim": (),
             "dest_dim": (),
             "dest_goal": 30,
@@ -450,6 +452,7 @@ class SimulationSource:
         self.tf_transform = tf.TransformListener()
         self.bb = bb
         self.sim_subscriber = rospy.Subscriber("/mujoco/object_states", ObjectStateArray, self.pose_listener)
+        self.tf_subscriber = rospy.Subscriber("/tf", TFMessage, self.tf_listener)
         self.contact_data = rospy.Subscriber("/mujoco/contact_data", ContactInfo, self.contact_listener, queue_size=1)
         # self.bounding_box_subscriber = rospy.Subscriber("/mujoco_object_bb", MarkerArray, self.bb_listener)
         self.sim_queries: list = []
@@ -531,6 +534,27 @@ class SimulationSource:
                     self.contact_point[0:2])
                 break
 
+    def tf_listener(self, data: TFMessage):
+        if data.transforms and (rospy.Time(data.transforms[0].header.stamp.secs, data.transforms[0].header.stamp.nsecs) -
+                                rospy.Time(
+                                    self.bb.context_values["source_pose"].header.stamp.secs,
+                                    self.bb.context_values["source_pose"].header.stamp.nsecs)).to_sec() >= 0.05:
+            for t in data.transforms:
+                if t.child_frame_id == self.bb.scene_desc["source"]:
+                    # print("source")
+                    self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["dest"]
+                    self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
+                    self.bb.context_values["source_pose"].pose.position.x = t.transform.translation.x
+                    self.bb.context_values["source_pose"].pose.position.y = t.transform.translation.y
+                    self.bb.context_values["source_pose"].pose.position.z = t.transform.translation.z
+                    self.bb.context_values["source_pose"].pose.orientation.x = t.transform.rotation.x
+                    self.bb.context_values["source_pose"].pose.orientation.y = t.transform.rotation.y
+                    self.bb.context_values["source_pose"].pose.orientation.z = t.transform.rotation.z
+                    self.bb.context_values["source_pose"].pose.orientation.w = t.transform.rotation.w
+                    self.src_points_to_project_to = self.util_helper.get_points_to_project(
+                        self.bb.scene_desc["source_dim"],
+                        self.bb.context_values["source_pose"].pose)
+
     def pose_listener(self, req):
 
         if req.object_states and (rospy.Time(req.header.stamp.secs, req.header.stamp.nsecs) -
@@ -548,16 +572,16 @@ class SimulationSource:
             # particle_positions = []
             for obj in req.object_states:
                 # print("name ", obj.name)
-                if obj.name == self.bb.scene_desc["source"]:
-                    # print("source")
-                    self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
-                    self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
-                    self.bb.context_values["source_pose"].pose = obj.pose
-                    self.src_points_to_project_to = self.util_helper.get_points_to_project(
-                        self.bb.scene_desc["source_dim"],
-                        self.bb.context_values["source_pose"].pose)
+                # if obj.name == self.bb.scene_desc["source"]:
+                #     # print("source")
+                #     self.bb.context_values["source_pose"].header.frame_id = self.bb.scene_desc["source"]
+                #     self.bb.context_values["source_pose"].header.stamp = rospy.Time.now()
+                #     self.bb.context_values["source_pose"].pose = obj.pose
+                #     self.src_points_to_project_to = self.util_helper.get_points_to_project(
+                #         self.bb.scene_desc["source_dim"],
+                #         self.bb.context_values["source_pose"].pose)
 
-                elif obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
+                if obj.name == self.bb.scene_desc["dest"]:  # Static so sufficient just get it once and not update!
                     # print("dests")
                     self.bb.context_values["dest_pose"].header.frame_id = self.bb.scene_desc["dest"]
                     self.bb.context_values["dest_pose"].header.stamp = \
@@ -741,9 +765,9 @@ class SimulationSource:
                 self.undershoot = False
 
             top_src_point = self.bb.context_values["source_pose"].pose.position.z + \
-                            self.bb.scene_desc["source_dim"][2]/2
+                            self.bb.scene_desc["source_dim"][2] / 2
             top_dest_point = self.bb.context_values["dest_pose"].pose.position.z + \
-                             self.bb.scene_desc["dest_dim"][2]/2
+                             self.bb.scene_desc["dest_dim"][2] / 2
             print("src heights ", (top_src_point - top_dest_point), self.bb.context_values["srcHeightLimits"])
 
             if self.src_orientation >= self.source_tilt_angle and \
@@ -827,7 +851,6 @@ class SimulationSource:
         else:
             self.bb.context_values["poursTo"] = False
 
-
         obj_avg = 0
         if len(self.object_flow) > 3:
             obj_avg = np.average(self.object_flow[-3:])
@@ -897,7 +920,6 @@ class SimulationSource:
         if self.bb.context_values["collides"] and self.bb.context_values["hasOpeningWithin"]:
             self.bb.context_values["locationOfSourceRelativeToDestination"] = \
                 self.util_helper.get_direction_relative_to_dest(self.direction_vector)
-
 
         # if spills, find relative position
         if self.bb.context_values["isSpilling"]:
