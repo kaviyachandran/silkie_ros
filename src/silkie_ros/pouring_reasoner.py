@@ -38,7 +38,7 @@ class Blackboard(object):
                              "medium": (0.10, 0.15),
                              "wide": (0.15, 0.2),
                              "veryWide": (0.2, 0.3)}
-        self.src_height = (0.15, 0.2, 0.3, 0.35)
+        self.src_height = (0.35, 0.2, 0.3, 0.35)
 
         # self.max_pouring_height = 0.3
 
@@ -50,10 +50,10 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 70,
+            "total_particles": 8,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 60,
+            "dest_goal": 5,
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
@@ -101,10 +101,10 @@ class Blackboard(object):
         # if dimension_data:
         #     self.set_dimension_values(dimension_data)
         # else:
-        # self.scene_desc["source_dim"] = (0.05, 0.05, 0.26)
-        # self.scene_desc["dest_dim"] = (0.065, 0.065, 0.17)
-        self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
-        self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
+        self.scene_desc["source_dim"] = (0.05, 0.05, 0.26)
+        self.scene_desc["dest_dim"] = (0.065, 0.065, 0.17)
+        # self.scene_desc["source_dim"] = (0.06, 0.06, 0.18)
+        # self.scene_desc["dest_dim"] = (0.06, 0.06, 0.18)
 
         dest_param_to_test = np.sort([self.scene_desc["dest_dim"][0], self.scene_desc["dest_dim"][1]])
 
@@ -178,10 +178,10 @@ class BlackboardController:
         for c in conclusions.defeasiblyProvable:
             if c[0] in whitelist:
                 print("def ", c)
-        if plotWindow is not None:
-            plt.draw()
-            plt.pause(0.001)
-            input("Press ENTER to continue")
+        # if plotWindow is not None:
+        #     plt.draw()
+        #     plt.pause(0.001)
+        #     input("Press ENTER to continue")
 
     def get_consequents(self):
         theory = self.reasoner.build_theory()
