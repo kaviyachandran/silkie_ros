@@ -496,7 +496,7 @@ class SimulationSource:
         self.object_flow_threshold = 5  # no.of particles per cycle
 
         self.source_tilt_angle = 45.0
-        self.source_upright_angle = 10.0
+        self.source_upright_angle = 20.0
         self.dest_upright_angle = 0.0
         self.src_orientation = 0.0
         self.src_direction = 1
