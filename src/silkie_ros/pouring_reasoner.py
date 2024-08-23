@@ -52,7 +52,7 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 51,
+            "total_particles": 140,
             "source_dim": (),
             "dest_dim": (),
             "dest_goal": 30,
@@ -97,6 +97,7 @@ class Blackboard(object):
             "destinationHasOpening": "",
             "srcHeightLimits": 0.0,
             "srcFarAbove": False,
+            "srcTooClose": False,
             "srcMaxTiltReached": False
         }
         # dimension_data = rospy.wait_for_message("/mujoco_object_bb", MarkerArray, timeout=5)
@@ -423,6 +424,13 @@ class Reasoner:
             self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-farAbove",
                                                             self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
 
+        if self.bb.context_values["srcTooClose"]:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "tooClose",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+        else:
+            self.current_facts.update(Reasoner.create_facts(self.bb.scene_desc["source"], "-tooClose",
+                                                            self.bb.scene_desc["dest"], silkie.DEFEASIBLE))
+
         return
 
     @staticmethod
@@ -444,6 +452,7 @@ class Reasoner:
 class SimulationSource:
 
     def __init__(self, bb, doDebug):
+        self.src_too_close: bool = False
         self.spilled_particle_poses: list = []
         self.util_helper = Utils()
         self.marker_array_publisher = rospy.Publisher("/test_markers", MarkerArray, queue_size=10)
@@ -480,7 +489,7 @@ class SimulationSource:
         self.source_tilt_angle = 45.0
         self.source_max_tilt_angle = 135.0
         self.source_upright_angle = 10.0
-        self.dest_upright_angle = 0.0
+        self.dest_upright_angle = 10.0
         self.src_orientation = 0.0
         self.src_direction = 1
         self.dest_orientation = 0.0
@@ -519,12 +528,13 @@ class SimulationSource:
 
     def contact_listener(self, data: ContactInfo):
         # print("in contact listener")
+        src = ["cup_x", "cup_y", "free_cup", "cup_z", "cup_rotx", "cup_roty"]
         self.collides = False
         for contact in data.contact_states:
-            if (contact.contact_body1 == self.bb.scene_desc["source"] and
-                contact.contact_body2 == self.bb.scene_desc["dest"]) or \
-                    (contact.contact_body1 == self.bb.scene_desc["dest"] and
-                     contact.contact_body2 == self.bb.scene_desc["source"]):
+            if (contact.contact_body1 == self.bb.scene_desc["dest"] and
+                contact.contact_body2 in src) or \
+                    (contact.contact_body1 in src and
+                     contact.contact_body2 == self.bb.scene_desc["dest"]):
                 print("collidessssssssss")
                 self.collides = True
                 self.contact_point = [contact.contact_point.x, contact.contact_point.y, contact.contact_point.z]
@@ -686,7 +696,7 @@ class SimulationSource:
                 self.bb.context_values["dest_pose"].pose)
 
             # print("pose ", self.bb.context_values["source_pose"].pose)
-            print(f'orientation:{self.src_orientation}')
+            print(f'orientation: {self.src_orientation}, dest:,{self.dest_orientation,  self.dest_direction}')
 
             # compute above (in dest frame)
             if self.util_helper.is_above(self.bb.context_values["source_pose"].pose,
@@ -776,7 +786,15 @@ class SimulationSource:
             else:
                 self.src_far_above = False
 
+            if self.src_orientation >= self.source_tilt_angle and \
+                    (top_src_point - top_dest_point) < 0.1:
+                self.src_too_close = True
+            else:
+                self.src_too_close = False
+
             print("src far above ", self.src_far_above)
+            print("src too close ", top_src_point - top_dest_point, np.sqrt((self.bb.scene_desc["source_dim"][0]/2) ** 2 +
+                                                                            (self.bb.scene_desc["dest_dim"][0]/2) ** 2))
 
         if self.debug:
             self.publish_test_markers()
@@ -840,7 +858,8 @@ class SimulationSource:
             self.bb.context_values["sourceUpright"] = False
 
         # dest upright
-        if not (self.dest_direction > 0 and np.isclose(self.dest_orientation, self.dest_upright_angle, atol=0.5)):
+        if not (self.dest_direction > 0 and self.dest_orientation <= self.dest_upright_angle):
+            print("Why am i hereee")
             self.bb.context_values["isDestTilted"] = True
         else:
             self.bb.context_values["isDestTilted"] = False
@@ -904,6 +923,12 @@ class SimulationSource:
             self.bb.context_values["srcFarAbove"] = True
         else:
             self.bb.context_values["srcFarAbove"] = False
+
+        # src too close
+        if self.src_too_close:
+            self.bb.context_values["srcTooClose"] = True
+        else:
+            self.bb.context_values["srcTooClose"] = False
 
         if self.opening_within:
             self.bb.context_values["hasOpeningWithin"] = True
