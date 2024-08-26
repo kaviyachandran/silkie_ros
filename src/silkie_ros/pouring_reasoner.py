@@ -50,10 +50,10 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 8,
+            "total_particles": 20,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 5,
+            "dest_goal": rospy.get_param('pouring_controller/goal', default=10),
             "sourceHasEdges": False,  # This can be obtained from some vis marker array if the type is set correctly
         }
         self.context_values = {
