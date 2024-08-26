@@ -38,7 +38,7 @@ class Blackboard(object):
                              "medium": (0.10, 0.15),
                              "wide": (0.15, 0.2),
                              "veryWide": (0.2, 0.3)}
-        self.src_height = (0.35, 0.2, 0.3, 0.35)
+        self.src_height = (0.22, 0.2, 0.3, 0.35)
 
         # self.max_pouring_height = 0.3
 
@@ -210,7 +210,7 @@ class BlackboardController:
                 self.queries_for_experts.append(predicate_list[-1].strip("Q_"))
         # TODO : publish a string message with behaviors to giskard
         print("data ", str(publish_data))
-        self.concluded_behavior_publisher.publish(str(publish_data))
+        self.concluded_behavior_publisher.publish(str(x for x in publish_data.values() if 'moveTowards' not in x))
         self.reasoner.current_facts = {}
         return
 
