@@ -285,8 +285,8 @@ class Utils(object):
 
         rot_matrix = quaternion_matrix(np.array([obj_pose.orientation.x, obj_pose.orientation.y, obj_pose.orientation.z,
                                                  obj_pose.orientation.w]))
-        A = self.rotate_point(A, rot_matrix)
-        B = self.rotate_point(B, rot_matrix)
+        # A = self.rotate_point(A, rot_matrix)
+        # B = self.rotate_point(B, rot_matrix)
 
         return A, B
 

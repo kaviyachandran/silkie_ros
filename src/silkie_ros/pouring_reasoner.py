@@ -21,7 +21,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped, Point, Pose
 from mujoco_msgs.msg import ObjectStateArray
 from mujoco_msgs.msg import ContactInfo
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64
 from visualization_msgs.msg import MarkerArray
 
 
@@ -47,10 +47,10 @@ class Blackboard(object):
             "dest_type": "Container",
             "poured_substance_type": "Thing",  # changing Thing to Liquid
             "poured_substance": "particles",
-            "total_particles": 11,
+            "total_particles": 100,
             "source_dim": (),
             "dest_dim": (),
-            "dest_goal": 6,
+            "dest_goal": 70,
             "sourceHasEdges": True,  # This can be obtained from some vis marker array if the type is set correctly
             "retained_substance_type": "Thing",
             "retained_substance": "big_ball",
@@ -496,7 +496,7 @@ class SimulationSource:
         self.object_flow_threshold = 5  # no.of particles per cycle
 
         self.source_tilt_angle = 45.0
-        self.source_upright_angle = 20.0
+        self.source_upright_angle = 15.0
         self.dest_upright_angle = 0.0
         self.src_orientation = 0.0
         self.src_direction = 1
@@ -513,7 +513,7 @@ class SimulationSource:
         self.corner_aligned = False
         self.corner_region = ""
         self.distance_from_retained_substance_to_opening = 0.0
-        self.distance_of_retained_substance_to_opening_threshold = 0.015
+        self.distance_of_retained_substance_to_opening_threshold = 0.05
 
         self.rot_dir = ""
         self.is_src_above = False
@@ -522,6 +522,8 @@ class SimulationSource:
         self.count_in_src = 0
         self.retained_substance_count = 0
         self.src_far_above = False
+
+        self.dist_pub = rospy.Publisher('/reasoner/retained_dist', Float64, queue_size=10)
 
     # def bb_listener(self, data: visualization_msgs.msg.MarkerArray):
     #     src_set = False
@@ -779,6 +781,9 @@ class SimulationSource:
                  ref_name=self.bb.scene_desc["source"],
                  obj_dim=self.bb.scene_desc["source_dim"],
                  obj_name=retained_substance_name)
+            msg = Float64()
+            msg.data = self.distance_from_retained_substance_to_opening
+            self.dist_pub.publish(msg)
             print("distance_from_retained_substance ", self.distance_from_retained_substance_to_opening)
 
         if self.debug:
