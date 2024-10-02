@@ -136,6 +136,7 @@ class Utils(object):
         # self.dest_bounding_box_pose.position.z + self.bb.scene_desc["dest_dim"][2] / 2)
         # 0.75 of l and d is to keep the rectangle smaller than the bounding box.
         # To ensure the source opening lies within the dest
+        # ToDo: the point is not rotated w.r.t the object
         l, d, h = (dest_dim[0] * 0.65) / 2, (dest_dim[1] * 0.65) / 2, dest_opening_point[2]
         a = np.array([dest_opening_point[0] - l, dest_opening_point[1] + d, h])
         b = np.array([dest_opening_point[0] - l, dest_opening_point[1] - d, h])
